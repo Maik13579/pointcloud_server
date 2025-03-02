@@ -9,4 +9,4 @@ bool store_in_labels #if true the labels are returned in the labels array
 bool success
 string message
 sensor_msgs/PointCloud2 pointcloud
-uint16 labels
+uint16[] labels

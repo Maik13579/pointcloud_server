@@ -339,6 +339,61 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool roll)
     this->KdTree.Reset();
 }
 
+//------------------------------------------------------------------------------
+void RollingGrid::LabelNewPoints(PointCloud::Ptr& pointcloud, bool expand) const
+{
+  std::vector<Eigen::Array3i> neighbors = expand ?
+                                            std::vector<Eigen::Array3i>({{ 1,  1, 1}, { 1,  1, 0}, { 1,  1, -1},
+                                                                         { 1,  0, 1}, { 1,  0, 0}, { 1,  0, -1},
+                                                                         { 1, -1, 1}, { 1, -1, 0}, { 1, -1, -1},
+                                                                         { 0,  1, 1}, { 0,  1, 0}, { 0,  1, -1},
+                                                                         { 0,  0, 1}, { 0,  0, 0}, { 0,  0, -1},
+                                                                         { 0, -1, 1}, { 0, -1, 0}, { 0, -1, -1},
+                                                                         {-1,  1, 1}, {-1,  1, 0}, {-1,  1, -1},
+                                                                         {-1,  0, 1}, {-1,  0, 0}, {-1,  0, -1},
+                                                                         {-1, -1, 1}, {-1, -1, 0}, {-1, -1, -1}}) :
+                                            std::vector<Eigen::Array3i>({{ 0,  0, 0}});
+
+  // Compute the 3D position of the center of the first voxel
+  Eigen::Array3f voxelGridOrigin = this->VoxelGridPosition - int(this->GridSize / 2) * this->VoxelWidth;
+
+  // Sample points which are different from fixed points in the rolling grid
+  for (Point& point : *pointcloud)
+  {
+    // Init label 0 for unkown
+    point.label = 0;
+    // Find the outer voxel containing this point
+    Eigen::Array3i voxelCoordOut = Utils::PositionToVoxel<Eigen::Array3f>(point.getArray3fMap(), voxelGridOrigin, this->VoxelWidth);
+
+    // Check whether or not the point is within bounds
+    if (((0 <= voxelCoordOut) && (voxelCoordOut < this->GridSize)).all())
+    {
+      // Compute the position of the center of the inner voxel grid (=sampling voxel grid)
+      // which is the center of the outer voxel (from the rolling voxel grid)
+      Eigen::Array3f voxelGridCenterIn = voxelCoordOut.cast<float>() * this->VoxelWidth + voxelGridOrigin;
+      // Find the inner voxel containing this point (from the sampling vg)
+      Eigen::Array3i voxelCoordIn = Utils::PositionToVoxel<Eigen::Array3f>(point.getArray3fMap(), voxelGridCenterIn, this->LeafSize);
+      unsigned int idxOut = this->To1d(voxelCoordOut, this->GridSize);
+      if (!this->Voxels.count(idxOut))
+        continue;
+
+      for (auto& neigh : neighbors)
+      {
+        Eigen::Array3i studiedVox = voxelCoordIn + neigh;
+        unsigned int idxIn = this->To1d(studiedVox, this->GridInSize);
+        // If the inner voxel is occupied, label it as the voxel.
+        if (this->Voxels.at(idxOut).count(idxIn))
+        {
+          point.label = this->Voxels.at(idxOut).at(idxIn).point.label;
+          break;
+        }
+      }
+    }
+  }
+}
+
+
+
 //==============================================================================
 //   Sub map use
 //==============================================================================

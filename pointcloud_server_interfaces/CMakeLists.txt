@@ -20,6 +20,7 @@ set(msg_files
 
 set(srv_files
   "srv/Add.srv"
+  "srv/BuildKdTree.srv"
   "srv/BuildSubMap.srv"
   "srv/ClearPoints.srv"
   "srv/Clear.srv"

@@ -11,6 +11,8 @@ find_package(pointcloud_server_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
 
 # Locate nanoflann header
 find_path(NANOFLLAN_INCLUDE_DIR nanoflann.hpp)
@@ -26,12 +28,19 @@ include_directories(
 )
 
 add_executable(pointcloud_server_node
+  src/main.cpp
   src/node.cpp
   src/RollingGrid.cpp
   src/Utilities.cpp
 )
 
-ament_target_dependencies(pointcloud_server_node rclcpp pointcloud_server_interfaces Eigen3)
+ament_target_dependencies(pointcloud_server_node
+  rclcpp
+  pointcloud_server_interfaces
+  Eigen3
+  pcl_conversions
+  pcl_ros
+)
 
 target_link_libraries(pointcloud_server_node
   ${PCL_LIBRARIES}
