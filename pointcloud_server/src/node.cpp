@@ -174,7 +174,6 @@ void PointcloudServerNode::publishTimerCallback()
   // Publish the submap if there is at least one subscriber
   if(submap_publisher_->get_subscription_count() > 0)
   {
-    rolling_grid_->BuildSubMap();
     auto pcl_submap = rolling_grid_->GetSubMap();
     sensor_msgs::msg::PointCloud2 sub_msg;
     pcl::toROSMsg(*pcl_submap, sub_msg);
