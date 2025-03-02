@@ -1,5 +1,4 @@
-# Label non-fixed points in a pointcloud with respect to a fixed current map
-# Non-fixed points are labeled as 0, others as 1.
+# Label unkown points in a pointcloud with respect to the current map
 # The sampling mode is to take the first point
 
 sensor_msgs/PointCloud2 pointcloud

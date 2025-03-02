@@ -178,7 +178,7 @@ void RollingGrid::Roll(const Eigen::Array3f& minPoint, const Eigen::Array3f& max
 }
 
 //------------------------------------------------------------------------------
-void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool fixed, bool roll)
+void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool roll)
 {
   if (pointcloud->empty())
   {
@@ -235,8 +235,8 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool fixed, bool roll)
         // Shortcut to voxel
         auto& voxel = this->Voxels[idxOut][idxIn];
 
-        // Check if the voxel contains a fixed point
-        if (voxel.point.label == 1)
+        // Check if the voxel contains a known point
+        if (voxel.point.label > 0)
           continue;
 
         switch(this->Sampling)
@@ -316,6 +316,7 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool fixed, bool roll)
             auto& voxel = this->Voxels[idxOut][idxIn];
             // Update the voxel point computing the centroid of all mean points laying in it
             voxel.point.getVector3fMap() = (voxel.point.getVector3fMap() * voxel.count + vIn.second.point.getVector3fMap()) / (voxel.count + 1);
+            voxel.point.label = 0; //Label is currently not supported for centroid mode
           }
         }
       }
@@ -323,9 +324,6 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool fixed, bool roll)
       // Shortcut to voxel
       auto& voxel = this->Voxels[idxOut][idxIn];
       voxel.point.time = Utils::PclStampToSec(pointcloud->header.stamp) + point.time;
-      // Point added is not fixed
-      voxel.point.label = static_cast<int>(fixed);
-
 
       if (!seen.count(idxOut) || !seen[idxOut].count(idxIn))
       {
@@ -405,7 +403,7 @@ void RollingGrid::Erase(int outVoxIdx, std::function<bool(const Point&)> heurist
     // Shortcut to voxel
     Voxel& voxel = itVoxelsIn->second;
     // If voxel is removable and in sphere, remove it
-    if (!voxel.point.label && heuristic(itVoxelsIn->second.point))
+    if (!(voxel.point.label>0) && heuristic(itVoxelsIn->second.point))
     {
       itVoxelsIn = this->Voxels[outVoxIdx].erase(itVoxelsIn);
       --this->NbPoints;
@@ -468,8 +466,8 @@ void RollingGrid::BuildSubMap(const Eigen::Array3f& minPoint, const Eigen::Array
        for (const auto& kvIn : kvOut.second)
        {
          // Check if enough points lie in the voxel
-         // or if the points are fixed before adding it
-         if (kvIn.second.count >= this->MinFramesPerVoxel || kvIn.second.point.label == 1)
+         // or if the points are known before adding it
+         if (kvIn.second.count >= this->MinFramesPerVoxel || kvIn.second.point.label > 0)
           this->SubMap->push_back(kvIn.second.point);
        }
      }
@@ -491,7 +489,7 @@ void RollingGrid::BuildSubMap(const Eigen::Array3f& minPoint, const Eigen::Array
          for (const auto& kvIn : kvOut.second)
          {
            // Invert constraint to add the other points
-           if (kvIn.second.count < this->MinFramesPerVoxel && kvIn.second.point.label != 1)
+           if (kvIn.second.count < this->MinFramesPerVoxel && kvIn.second.point.label < 1)
               this->SubMap->push_back(kvIn.second.point);
          }
        }
@@ -583,7 +581,7 @@ void RollingGrid::BuildSubMap(const PointCloud& pc, int minNbPoints)
       for (const auto& kvIn : this->Voxels[vxIdx])
       {
         if (kvIn.second.count > this->MinFramesPerVoxel ||
-            kvIn.second.point.label == 1)
+            kvIn.second.point.label > 0)
           this->SubMap->push_back(kvIn.second.point);
       }
     }
@@ -598,7 +596,7 @@ void RollingGrid::BuildSubMap(const PointCloud& pc, int minNbPoints)
         for (const auto& kvIn : this->Voxels[vxIdx])
         {
           if (kvIn.second.count < this->MinFramesPerVoxel &&
-              kvIn.second.point.label != 1)
+              kvIn.second.point.label == 0)
             this->SubMap->push_back(kvIn.second.point);
         }
       }

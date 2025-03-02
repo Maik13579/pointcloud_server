@@ -1,9 +1,7 @@
 # Add some points to the grid.
-# If fixed is true, the points added will not be modified afterwards.
 # If roll is true, the map is rolled first so that all new points to add can fit in rolled map.
 # If points are added, the sub-map KD-tree is cleared.
 sensor_msgs/PointCloud2 pointcloud
-bool fixed
 bool roll
 ---
 bool success

@@ -28,14 +28,6 @@ namespace LidarSlam
 {
 
 //------------------------------------------------------------------------------
-//! Type of lidar point
-enum LidarPointLabel
-{
-  DEFAULT = 0,
-  FIXED = 1
-};
-
-//------------------------------------------------------------------------------
 //! How to downsample the map
 // A voxel grid is used and various downsampling modes
 // are possible to select the remaining point in each voxel

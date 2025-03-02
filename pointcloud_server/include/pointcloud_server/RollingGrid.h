@@ -102,8 +102,7 @@ public:
   //! Get all points in the grid
   //! clean allows to remove the moving objects
   PointCloud::Ptr Get(bool clean = false) const;
-  //! Label non-fixed points in a pointcloud with respect to a fixed current map
-  //! Non-fixed points are labeled as 0, others as 1.
+  //! Label unkown points (0) in a pointcloud with respect to the current map.
   //! The sampling mode is to take the first point
   void LabelNewPoints(PointCloud::Ptr& pointcloud, bool expand = false) const;
   //! Get the total number of points in rolling grid
@@ -111,10 +110,9 @@ public:
   //! Roll the grid so that input bounding box can fit it in rolled map
   void Roll(const Eigen::Array3f& minPoint, const Eigen::Array3f& maxPoint);
   //! Add some points to the grid.
-  //! If fixed is true, the points added will not be modified afterwards.
   //! If roll is true, the map is rolled first so that all new points to add can fit in rolled map.
   //! If points are added, the sub-map KD-tree is cleared.
-  void Add(const PointCloud::Ptr& pointcloud, bool fixed = false, bool roll = true);
+  void Add(const PointCloud::Ptr& pointcloud, bool roll = true);
   //============================================================================
   //   Sub map use
   //============================================================================
