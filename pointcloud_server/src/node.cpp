@@ -37,65 +37,65 @@ PointcloudServerNode::PointcloudServerNode()
 
   // Create publisher and subscriber for add / labelNewPoints
   add_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "add_input", 10,
+    "~/add_input", 10,
     std::bind(&PointcloudServerNode::addCallbackPubSub, this, std::placeholders::_1)
   );
 
   label_new_points_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "label_new_points_input", 10,
+    "~/label_new_points_input", 10,
     std::bind(&PointcloudServerNode::labelNewPointsCallbackPubSub, this, std::placeholders::_1)
   );
-  label_new_point_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("label_new_points_output", 10);
+  label_new_point_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/label_new_points_output", 10);
 
 
   // Create service servers with stub callbacks
   add_service_ = this->create_service<pointcloud_server_interfaces::srv::Add>(
-    "add", std::bind(&PointcloudServerNode::addCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/add", std::bind(&PointcloudServerNode::addCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   build_kd_tree_service_ = this->create_service<pointcloud_server_interfaces::srv::BuildKdTree>(
-    "build_kd_tree", std::bind(&PointcloudServerNode::buildKdTreeCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/build_kd_tree", std::bind(&PointcloudServerNode::buildKdTreeCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   build_submap_service_ = this->create_service<pointcloud_server_interfaces::srv::BuildSubMap>(
-    "build_submap", std::bind(&PointcloudServerNode::buildSubMapCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/build_submap", std::bind(&PointcloudServerNode::buildSubMapCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   clear_service_ = this->create_service<pointcloud_server_interfaces::srv::Clear>(
-    "clear", std::bind(&PointcloudServerNode::clearCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/clear", std::bind(&PointcloudServerNode::clearCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   clear_points_service_ = this->create_service<pointcloud_server_interfaces::srv::ClearPoints>(
-    "clear_points", std::bind(&PointcloudServerNode::clearPointsCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/clear_points", std::bind(&PointcloudServerNode::clearPointsCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   empty_around_service_ = this->create_service<pointcloud_server_interfaces::srv::EmptyAroundPoint>(
-    "empty_around_point", std::bind(&PointcloudServerNode::emptyAroundPointCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/empty_around_point", std::bind(&PointcloudServerNode::emptyAroundPointCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   get_service_ = this->create_service<pointcloud_server_interfaces::srv::Get>(
-    "get", std::bind(&PointcloudServerNode::getCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/get", std::bind(&PointcloudServerNode::getCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   get_submap_service_ = this->create_service<pointcloud_server_interfaces::srv::GetSubMap>(
-    "get_submap", std::bind(&PointcloudServerNode::getSubMapCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/get_submap", std::bind(&PointcloudServerNode::getSubMapCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   knn_search_service_ = this->create_service<pointcloud_server_interfaces::srv::KnnSearch>(
-    "knn_search", std::bind(&PointcloudServerNode::knnSearchCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/knn_search", std::bind(&PointcloudServerNode::knnSearchCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   label_new_points_service_ = this->create_service<pointcloud_server_interfaces::srv::LabelNewPoints>(
-    "label_new_points", std::bind(&PointcloudServerNode::labelNewPointsCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/label_new_points", std::bind(&PointcloudServerNode::labelNewPointsCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   reset_service_ = this->create_service<pointcloud_server_interfaces::srv::Reset>(
-    "reset", std::bind(&PointcloudServerNode::resetCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/reset", std::bind(&PointcloudServerNode::resetCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   roll_service_ = this->create_service<pointcloud_server_interfaces::srv::Roll>(
-    "roll", std::bind(&PointcloudServerNode::rollCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/roll", std::bind(&PointcloudServerNode::rollCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   save_service_ = this->create_service<pointcloud_server_interfaces::srv::Save>(
     "~/save", std::bind(&PointcloudServerNode::saveCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   set_grid_size_service_ = this->create_service<pointcloud_server_interfaces::srv::SetGridSize>(
-    "set_grid_size", std::bind(&PointcloudServerNode::setGridSizeCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/set_grid_size", std::bind(&PointcloudServerNode::setGridSizeCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   set_leaf_size_service_ = this->create_service<pointcloud_server_interfaces::srv::SetLeafSize>(
-    "set_leaf_size", std::bind(&PointcloudServerNode::setLeafSizeCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/set_leaf_size", std::bind(&PointcloudServerNode::setLeafSizeCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   set_voxel_resolution_service_ = this->create_service<pointcloud_server_interfaces::srv::SetVoxelResolution>(
-    "set_voxel_resolution", std::bind(&PointcloudServerNode::setVoxelResolutionCallback, this, std::placeholders::_1, std::placeholders::_2)
+    "~/set_voxel_resolution", std::bind(&PointcloudServerNode::setVoxelResolutionCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
 
   // Load a map from a PCD file if the "map_path" parameter is non-empty.
