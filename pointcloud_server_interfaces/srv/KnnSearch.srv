@@ -1,0 +1,10 @@
+# Do a KnnSearch on the RollingGrid Submap
+geometry_msgs/Point query_point
+uint32 knearest
+
+---
+bool success
+string message
+sensor_msgs/PointCloud2 cloud
+uint32[] knn_indices
+float32[] knn_distances

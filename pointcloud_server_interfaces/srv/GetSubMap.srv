@@ -1,0 +1,6 @@
+# Get the sub map lastly computed
+
+---
+sensor_msgs/PointCloud2 cloud
+bool success
+string message

@@ -1,0 +1,7 @@
+# Roll the grid so that input bounding box can fit it in rolled map
+geometry_msgs/Point min_point
+geometry_msgs/Point max_point
+
+---
+bool success
+string message

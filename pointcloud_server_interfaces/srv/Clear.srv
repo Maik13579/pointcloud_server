@@ -1,0 +1,4 @@
+# Remove all points from all voxels and clear the submap KD-tree
+---
+bool success
+string message

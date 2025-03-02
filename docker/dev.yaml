@@ -1,0 +1,7 @@
+services:
+  pointcloud_server:
+    container_name: pointcloud_server
+    extends: 
+      file: common.yaml
+      service: .common_nvidia
+    command: tail -f /dev/null

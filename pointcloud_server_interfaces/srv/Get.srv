@@ -1,0 +1,8 @@
+# Get all points in the grid
+# clean allows to remove the moving objects
+
+bool clean
+---
+sensor_msgs/PointCloud2 cloud
+bool success
+string message

@@ -1,0 +1,9 @@
+# Remove the oldest voxels from the map relatively to the current time using the decaying time threshold member
+# If clear_old_points is false, remove voxels newer than the current_time
+
+
+float32 current_time #Leave empty for current ROS time
+bool clear_old_points
+---
+bool success
+string message

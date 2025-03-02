@@ -1,0 +1,8 @@
+# Set grid size (number of voxels in each direction)
+# NOTE: this may remove some points from the grid if size is decreased
+# The sub-map KD-tree is cleared during the process.
+uint32 size
+
+---
+bool success
+string message

@@ -1,0 +1,5 @@
+float32 ls
+
+---
+bool success
+string message

@@ -1,0 +1,13 @@
+# Label non-fixed points in a pointcloud with respect to a fixed current map
+# Non-fixed points are labeled as 0, others as 1.
+# The sampling mode is to take the first point
+
+sensor_msgs/PointCloud2 pointcloud
+bool expand # Checks neighboring inner voxels
+bool store_in_labels #if true the labels are returned in the labels array
+# if false they are directly stored in the point cloud
+---
+bool success
+string message
+sensor_msgs/PointCloud2 pointcloud
+uint16 labels

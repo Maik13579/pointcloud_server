@@ -1,0 +1,8 @@
+# Remove the points around position
+# useful to remove the points around a specific point of view
+
+float32 dist_threshold
+geometry_msgs/Point position
+---
+bool success
+string message

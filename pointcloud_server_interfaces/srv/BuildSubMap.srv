@@ -1,0 +1,16 @@
+
+uint8 mode
+uint8 MODE_ALL=1            # Extract the submaps rejecting moving object using the MinFramesPerVoxel criterion.
+uint8 MODE_BOUNDINGBOX=2    # Extract the submap as the map points laying in the bounding box formed by min_point and max_point.
+uint8 MODE_POINTCLOUD=2     # Extract the submap as the map points laying in the same voxels as the one containing pc points.
+
+geometry_msgs/Point min_point
+geometry_msgs/Point max_point
+sensor_msgs/PointCloud2 pc
+
+# min_nb_points allows to not reject moving objects if the extracted submap is not dense enough
+# if min_nb_points is negative, all points are taken (no moving objects rejection)
+uint32 min_nb_points 
+---
+bool success
+string message

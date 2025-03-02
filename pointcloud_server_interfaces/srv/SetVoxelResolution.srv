@@ -1,0 +1,8 @@
+# Set voxel resolution (resolution of each voxel, in meters)
+# NOTE: this may remove some points from the grid if resolution is decreased
+# The sub-map KD-tree is cleared during the process.
+float32 resolution
+
+---
+bool success
+string message
