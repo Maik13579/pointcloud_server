@@ -35,6 +35,19 @@ PointcloudServerNode::PointcloudServerNode()
     std::bind(&PointcloudServerNode::publishTimerCallback, this)
   );
 
+  // Create publisher and subscriber for add / labelNewPoints
+  add_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    "add_input", 10,
+    std::bind(&PointcloudServerNode::addCallbackPubSub, this, std::placeholders::_1)
+  );
+
+  label_new_points_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    "label_new_points_input", 10,
+    std::bind(&PointcloudServerNode::labelNewPointsCallbackPubSub, this, std::placeholders::_1)
+  );
+  label_new_point_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("label_new_points_output", 10);
+
+
   // Create service servers with stub callbacks
   add_service_ = this->create_service<pointcloud_server_interfaces::srv::Add>(
     "add", std::bind(&PointcloudServerNode::addCallback, this, std::placeholders::_1, std::placeholders::_2)
@@ -111,6 +124,8 @@ void PointcloudServerNode::loadParameters()
   this->declare_parameter<double>("PublishFrequency", 1.0);
   // Sampling mode as an integer: 0-FIRST, 1-LAST, 2-MAX_INTENSITY, 3-CENTER_POINT, 4-CENTROID
   this->declare_parameter<int>("Sampling", 2);
+  this->declare_parameter<bool>("ExpandOption", true);
+  this->declare_parameter<bool>("RollOption", true);
 
   frame_id_ = this->get_parameter("frame_id").as_string();
   grid_size_ = this->get_parameter("GridSize").as_int();
@@ -120,6 +135,8 @@ void PointcloudServerNode::loadParameters()
   decaying_threshold_ = this->get_parameter("DecayingThreshold").as_double();
   publish_frequency_ = this->get_parameter("PublishFrequency").as_double();
   int sampling_int = this->get_parameter("Sampling").as_int();
+  expand_option_ = this->get_parameter("ExpandOption").as_bool();
+  roll_option_ = this->get_parameter("RollOption").as_bool();
 
   switch(sampling_int)
   {
@@ -164,6 +181,44 @@ void PointcloudServerNode::publishTimerCallback()
     sub_msg.header.stamp = this->now();
     sub_msg.header.frame_id = frame_id_;
     submap_publisher_->publish(sub_msg);
+  }
+}
+
+void PointcloudServerNode::addCallbackPubSub(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+  // Convert the incoming message to a PCL cloud.
+  pcl::PointCloud<LidarSlam::LidarPoint> pcl_cloud;
+  pcl::fromROSMsg(*msg, pcl_cloud);
+  auto cloud_ptr = std::make_shared<pcl::PointCloud<LidarSlam::LidarPoint>>(pcl_cloud);
+
+  try {
+    // Use the roll_option_ parameter to control the behavior.
+    rolling_grid_->Add(cloud_ptr, roll_option_);
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(this->get_logger(), "Error in addCallbackPubSub: %s", e.what());
+  }
+}
+
+void PointcloudServerNode::labelNewPointsCallbackPubSub(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+  // Convert the incoming message to a PCL cloud.
+  pcl::PointCloud<LidarSlam::LidarPoint> pcl_cloud;
+  pcl::fromROSMsg(*msg, pcl_cloud);
+  auto cloud_ptr = std::make_shared<pcl::PointCloud<LidarSlam::LidarPoint>>(pcl_cloud);
+
+  try {
+    // Use the expand_option_ parameter to control the behavior.
+    rolling_grid_->LabelNewPoints(cloud_ptr, expand_option_);
+    // Publish the labeled cloud on the label_new_points_output topic.
+    if (label_new_point_publisher_->get_subscription_count() > 0) {
+      sensor_msgs::msg::PointCloud2 out_msg;
+      pcl::toROSMsg(*cloud_ptr, out_msg);
+      out_msg.header.stamp = this->now();
+      out_msg.header.frame_id = frame_id_;
+      label_new_point_publisher_->publish(out_msg);
+    }
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(this->get_logger(), "Error in labelNewPointsCallbackPubSub: %s", e.what());
   }
 }
 

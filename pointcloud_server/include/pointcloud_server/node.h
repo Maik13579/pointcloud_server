@@ -55,6 +55,15 @@ private:
   // Timer for periodic publishing
   rclcpp::TimerBase::SharedPtr publish_timer_;
 
+  // Publisher / Subscriber for add / labelNewPoints
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr add_subscriber_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr label_new_points_subscriber_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr label_new_point_publisher_;
+
+  // Params for add / labelNewPoints via publisher/subscriber
+  bool roll_option_;
+  bool expand_option_;
+
   // Service servers
   rclcpp::Service<pointcloud_server_interfaces::srv::Add>::SharedPtr add_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::BuildKdTree>::SharedPtr build_kd_tree_service_;
@@ -71,6 +80,9 @@ private:
   rclcpp::Service<pointcloud_server_interfaces::srv::SetGridSize>::SharedPtr set_grid_size_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::SetLeafSize>::SharedPtr set_leaf_size_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::SetVoxelResolution>::SharedPtr set_voxel_resolution_service_;
+
+  void addCallbackPubSub(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void labelNewPointsCallbackPubSub(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   // Service callbacks
   void addCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::Add::Request> request,
