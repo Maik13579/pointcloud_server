@@ -11,7 +11,7 @@ namespace pointcloud_server
 {
 
 PointcloudServerNode::PointcloudServerNode()
-: Node("pointcloud_server_node")
+: Node("pointcloud_server")
 {
   // Load parameters from the parameter server
   loadParameters();
@@ -85,6 +85,9 @@ PointcloudServerNode::PointcloudServerNode()
   roll_service_ = this->create_service<pointcloud_server_interfaces::srv::Roll>(
     "roll", std::bind(&PointcloudServerNode::rollCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
+  save_service_ = this->create_service<pointcloud_server_interfaces::srv::Save>(
+    "~/save", std::bind(&PointcloudServerNode::saveCallback, this, std::placeholders::_1, std::placeholders::_2)
+  );
   set_grid_size_service_ = this->create_service<pointcloud_server_interfaces::srv::SetGridSize>(
     "set_grid_size", std::bind(&PointcloudServerNode::setGridSizeCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
@@ -96,16 +99,14 @@ PointcloudServerNode::PointcloudServerNode()
   );
 
   // Load a map from a PCD file if the "map_path" parameter is non-empty.
-  this->declare_parameter<std::string>("map_path", "");
-  std::string map_path = this->get_parameter("map_path").as_string();
-  if (!map_path.empty()) {
+  if (!map_path_.empty()) {
     pcl::PointCloud<LidarSlam::LidarPoint>::Ptr map_cloud(new pcl::PointCloud<LidarSlam::LidarPoint>);
-    if (pcl::io::loadPCDFile(map_path, *map_cloud) == 0) {
-      RCLCPP_INFO(this->get_logger(), "Loaded map from %s", map_path.c_str());
+    if (pcl::io::loadPCDFile(map_path_, *map_cloud) == 0) {
+      RCLCPP_INFO(this->get_logger(), "Loaded map from %s", map_path_.c_str());
       // Add the loaded cloud to the grid. Set roll=false since the cloud is already aligned.
       rolling_grid_->Add(map_cloud, false);
     } else {
-      RCLCPP_ERROR(this->get_logger(), "Failed to load map from %s", map_path.c_str());
+      RCLCPP_ERROR(this->get_logger(), "Failed to load map from %s", map_path_.c_str());
     }
   }
 
@@ -115,6 +116,7 @@ PointcloudServerNode::PointcloudServerNode()
 void PointcloudServerNode::loadParameters()
 {
   // Declare and get parameters with default values
+  this->declare_parameter<std::string>("map_path", "");
   this->declare_parameter<std::string>("frame_id", "map");
   this->declare_parameter<int>("GridSize", 50);
   this->declare_parameter<double>("VoxelResolution", 10.0);
@@ -127,6 +129,7 @@ void PointcloudServerNode::loadParameters()
   this->declare_parameter<bool>("ExpandOption", true);
   this->declare_parameter<bool>("RollOption", true);
 
+  map_path_ = this->get_parameter("map_path").as_string();
   frame_id_ = this->get_parameter("frame_id").as_string();
   grid_size_ = this->get_parameter("GridSize").as_int();
   voxel_resolution_ = this->get_parameter("VoxelResolution").as_double();
@@ -557,6 +560,47 @@ void PointcloudServerNode::rollCallback(
     response->success = false;
     response->message = e.what();
     RCLCPP_ERROR(this->get_logger(), "Error in Roll: %s", e.what());
+  }
+}
+
+void PointcloudServerNode::saveCallback(
+  const std::shared_ptr<pointcloud_server_interfaces::srv::Save::Request> request,
+  std::shared_ptr<pointcloud_server_interfaces::srv::Save::Response> response)
+{
+  RCLCPP_INFO(this->get_logger(), "Received Save service call");
+  try {
+    // Get the full map
+    auto pcl_map = rolling_grid_->Get();
+
+    // If the request path is empty, use the member variable map_path_.
+    // If map_path_ is also empty, throw an error.
+    std::string save_path = request->path;
+    if (save_path.empty()) {
+      if (!map_path_.empty()) {
+        save_path = map_path_;
+      } else {
+        response->success = false;
+        response->message = "No save path provided and map_path_ parameter is empty.";
+        RCLCPP_ERROR(this->get_logger(), "Save failed: no save path provided.");
+        return;
+      }
+    }
+
+    // Save the point cloud to a binary PCD file.
+    int result = pcl::io::savePCDFileBinary(save_path, *pcl_map);
+    if (result == 0) {
+      response->success = true;
+      response->message = "Saved point cloud to " + save_path;
+      RCLCPP_INFO(this->get_logger(), "Saved point cloud to %s", save_path.c_str());
+    } else {
+      response->success = false;
+      response->message = "Failed to save point cloud to " + save_path;
+      RCLCPP_ERROR(this->get_logger(), "Failed to save point cloud to %s", save_path.c_str());
+    }
+  } catch (const std::exception &e) {
+    response->success = false;
+    response->message = e.what();
+    RCLCPP_ERROR(this->get_logger(), "Error in Save: %s", e.what());
   }
 }
 

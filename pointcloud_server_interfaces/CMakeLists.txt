@@ -31,6 +31,7 @@ set(srv_files
   "srv/LabelNewPoints.srv"
   "srv/Reset.srv"
   "srv/Roll.srv"
+  "srv/Save.srv"
   "srv/SetGridSize.srv"
   "srv/SetLeafSize.srv"
   "srv/SetVoxelResolution.srv"

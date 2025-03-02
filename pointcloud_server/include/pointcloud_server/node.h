@@ -16,6 +16,7 @@
 #include "pointcloud_server_interfaces/srv/knn_search.hpp"
 #include "pointcloud_server_interfaces/srv/label_new_points.hpp"
 #include "pointcloud_server_interfaces/srv/reset.hpp"
+#include "pointcloud_server_interfaces/srv/save.hpp"
 #include "pointcloud_server_interfaces/srv/roll.hpp"
 #include "pointcloud_server_interfaces/srv/set_grid_size.hpp"
 #include "pointcloud_server_interfaces/srv/set_leaf_size.hpp"
@@ -38,6 +39,7 @@ private:
   std::shared_ptr<LidarSlam::RollingGrid> rolling_grid_;
 
   // Parameters
+  std::string map_path_;
   std::string frame_id_;
   int grid_size_;
   double voxel_resolution_;
@@ -77,6 +79,7 @@ private:
   rclcpp::Service<pointcloud_server_interfaces::srv::LabelNewPoints>::SharedPtr label_new_points_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::Reset>::SharedPtr reset_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::Roll>::SharedPtr roll_service_;
+  rclcpp::Service<pointcloud_server_interfaces::srv::Save>::SharedPtr save_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::SetGridSize>::SharedPtr set_grid_size_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::SetLeafSize>::SharedPtr set_leaf_size_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::SetVoxelResolution>::SharedPtr set_voxel_resolution_service_;
@@ -109,6 +112,8 @@ private:
                      std::shared_ptr<pointcloud_server_interfaces::srv::Reset::Response> response);
   void rollCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::Roll::Request> request,
                     std::shared_ptr<pointcloud_server_interfaces::srv::Roll::Response> response);
+  void saveCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::Save::Request> request,
+                  std::shared_ptr<pointcloud_server_interfaces::srv::Save::Response> response);
   void setGridSizeCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::SetGridSize::Request> request,
                            std::shared_ptr<pointcloud_server_interfaces::srv::SetGridSize::Response> response);
   void setLeafSizeCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::SetLeafSize::Request> request,

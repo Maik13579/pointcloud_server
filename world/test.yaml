@@ -1,4 +1,4 @@
-pointcloud_server_node:
+pointcloud_server:
   ros__parameters:
     frame_id: "map"
     map_path: "/world/world.pcd"

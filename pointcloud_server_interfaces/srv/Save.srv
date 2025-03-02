@@ -1,0 +1,6 @@
+string path #use map_path param if empty
+
+---
+
+bool success
+string message
