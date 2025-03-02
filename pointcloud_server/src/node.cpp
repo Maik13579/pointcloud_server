@@ -82,6 +82,20 @@ PointcloudServerNode::PointcloudServerNode()
     "set_voxel_resolution", std::bind(&PointcloudServerNode::setVoxelResolutionCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
 
+  // Load a map from a PCD file if the "map_path" parameter is non-empty.
+  this->declare_parameter<std::string>("map_path", "");
+  std::string map_path = this->get_parameter("map_path").as_string();
+  if (!map_path.empty()) {
+    pcl::PointCloud<LidarSlam::LidarPoint>::Ptr map_cloud(new pcl::PointCloud<LidarSlam::LidarPoint>);
+    if (pcl::io::loadPCDFile(map_path, *map_cloud) == 0) {
+      RCLCPP_INFO(this->get_logger(), "Loaded map from %s", map_path.c_str());
+      // Add the loaded cloud to the grid. Set roll=false since the cloud is already aligned.
+      rolling_grid_->Add(map_cloud, false);
+    } else {
+      RCLCPP_ERROR(this->get_logger(), "Failed to load map from %s", map_path.c_str());
+    }
+  }
+
   RCLCPP_INFO(this->get_logger(), "Pointcloud Server Node has been initialized.");
 }
 
