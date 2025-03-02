@@ -16,6 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.w
 //==============================================================================
+// Edited to better fit the scope of this projet
 
 #include "pointcloud_server/Utilities.h"
 

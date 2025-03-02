@@ -17,6 +17,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //==============================================================================
+// Edited to better fit the scope of this projet
 
 #pragma once
 
