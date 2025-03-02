@@ -1,0 +1,15 @@
+pointcloud_server_node:
+  ros__parameters:
+    frame_id: "map"
+    map_path: "/world/world.pcd"
+    GridSize: 50
+    VoxelResolution: 10.0
+    LeafSize: 0.1
+    MinFramesPerVoxel: 0
+    DecayingThreshold: -1.0
+    PublishFrequency: 1.0
+    # Sampling mode:
+    # 0: FIRST, 1: LAST, 2: MAX_INTENSITY, 3: CENTER_POINT, 4: CENTROID
+    Sampling: 2
+    ExpandOption: true
+    RollOption: true

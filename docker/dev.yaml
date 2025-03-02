@@ -4,4 +4,15 @@ services:
     extends: 
       file: common.yaml
       service: .common_nvidia
-    command: ros2 run pointcloud_server pointcloud_server_node
+    volumes:
+      - ../world:/world
+    command: ros2 run pointcloud_server pointcloud_server_node --ros-args --params-file /world/test.yaml
+
+  rviz:
+    container_name: rviz
+    extends: 
+      file: common.yaml
+      service: .common_nvidia
+    volumes:
+      - ../world:/world
+    command: ros2 run rviz2 rviz2 -d /world/test.rviz
