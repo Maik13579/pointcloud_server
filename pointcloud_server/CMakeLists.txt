@@ -1,0 +1,54 @@
+cmake_minimum_required(VERSION 3.8)
+project(pointcloud_server)
+
+# Set C++ standard to C++17
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
+find_package(ament_cmake REQUIRED)
+find_package(pointcloud_server_interfaces REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(PCL REQUIRED)
+
+# Locate nanoflann header
+find_path(NANOFLLAN_INCLUDE_DIR nanoflann.hpp)
+if(NOT NANOFLLAN_INCLUDE_DIR)
+  message(FATAL_ERROR "nanoflann.hpp not found. Please install libnanoflann-dev.")
+endif()
+
+include_directories(
+  include
+  ${EIGEN3_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+  ${NANOFLLAN_INCLUDE_DIR}
+)
+
+add_executable(pointcloud_server_node
+  src/node.cpp
+  src/RollingGrid.cpp
+  src/Utilities.cpp
+)
+
+ament_target_dependencies(pointcloud_server_node rclcpp pointcloud_server_interfaces Eigen3)
+
+target_link_libraries(pointcloud_server_node
+  ${PCL_LIBRARIES}
+)
+
+install(TARGETS pointcloud_server_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY include/
+  DESTINATION include/
+)
+
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()

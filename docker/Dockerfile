@@ -11,23 +11,21 @@ ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 SHELL ["/bin/bash", "-c"]
 
 #source ros stuff
-#COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
+COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
 RUN chmod +x /ros_entrypoint.sh
 ENTRYPOINT ["/ros_entrypoint.sh"]
 
 #install important stuff
 RUN apt update \
     && apt install -y \
+    libnanoflann-dev \
     ros-$ROS_DISTRO-rmw-cyclonedds-cpp \
     ros-$ROS_DISTRO-rviz2 \
     ros-$ROS_DISTRO-tf-transformations \
-    python3-pip \
-    && pip3 install open3d numpy compas scipy python-dateutil transforms3d \
     && rm -rf /var/lib/apt/lists/*
 
-
 #Copy only package.xml files to use caching and avoid reinstalling deps every time
-#COPY pointcloud_server/package.xml ${ROS_WS}/src/pointcloud_server/pointcloud_server/package.xml
+COPY pointcloud_server/package.xml ${ROS_WS}/src/pointcloud_server/pointcloud_server/package.xml
 COPY pointcloud_server_interfaces/package.xml ${ROS_WS}/src/pointcloud_server/pointcloud_server_interfaces/package.xml
 WORKDIR ${ROS_WS}
 RUN apt update \
@@ -36,7 +34,7 @@ RUN apt update \
     && rm -rf /var/lib/apt/lists/*
 
 # Build
-#COPY pointcloud_server ${ROS_WS}/src/pointcloud_server/pointcloud_server
+COPY pointcloud_server ${ROS_WS}/src/pointcloud_server/pointcloud_server
 COPY pointcloud_server_interfaces ${ROS_WS}/src/pointcloud_server/pointcloud_server_interfaces
 WORKDIR ${ROS_WS}
 RUN source /opt/ros/$ROS_DISTRO/setup.bash \

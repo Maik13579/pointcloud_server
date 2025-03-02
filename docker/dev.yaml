@@ -4,4 +4,4 @@ services:
     extends: 
       file: common.yaml
       service: .common_nvidia
-    command: tail -f /dev/null
+    command: ros2 run pointcloud_server pointcloud_server_node
