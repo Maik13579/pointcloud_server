@@ -13,6 +13,9 @@ find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+
 
 # Locate nanoflann header
 find_path(NANOFLLAN_INCLUDE_DIR nanoflann.hpp)
@@ -27,11 +30,17 @@ include_directories(
   ${NANOFLLAN_INCLUDE_DIR}
 )
 
+# Build the main executable
 add_executable(pointcloud_server_node
   src/main.cpp
   src/node.cpp
   src/RollingGrid.cpp
   src/Utilities.cpp
+)
+
+add_executable(filter_node
+  src/main_filter_node.cpp
+  src/filter_node.cpp
 )
 
 ament_target_dependencies(pointcloud_server_node
@@ -46,7 +55,23 @@ target_link_libraries(pointcloud_server_node
   ${PCL_LIBRARIES}
 )
 
+ament_target_dependencies(filter_node
+  rclcpp
+  pcl_ros
+  pcl_conversions
+  tf2_ros
+  tf2_eigen
+)
+
+target_link_libraries(filter_node
+  ${PCL_LIBRARIES}
+)
+
 install(TARGETS pointcloud_server_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS filter_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
