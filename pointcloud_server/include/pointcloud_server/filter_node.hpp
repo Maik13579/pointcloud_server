@@ -38,6 +38,8 @@ private:
   bool voxel_filter_enabled_;
   double voxel_leaf_size_;  
 
+  bool use_latest_tf_;
+
   std::string filter_frame_;
   std::string output_frame_;
   double radius_min_;

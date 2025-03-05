@@ -51,6 +51,9 @@ void FilterNode::loadParameters()
   this->declare_parameter<std::string>("min_filter", "");
   this->declare_parameter<std::string>("max_filter", "");
 
+  this->declare_parameter<bool>("use_latest_tf", true);
+
+
   // Load voxel parameters
   voxel_filter_enabled_ = this->get_parameter("voxel_filter.enabled").as_bool();
   voxel_leaf_size_ = this->get_parameter("voxel_filter.leaf_size").as_double();
@@ -66,11 +69,16 @@ void FilterNode::loadParameters()
   std::string min_filter_str = this->get_parameter("min_filter").as_string();
   std::string max_filter_str = this->get_parameter("max_filter").as_string();
 
+  use_latest_tf_ = this->get_parameter("use_latest_tf").as_bool();
+
   RCLCPP_INFO(this->get_logger(), "[Params] Filter Frame: %s", filter_frame_.c_str());
   RCLCPP_INFO(this->get_logger(), "[Params] Output Frame: %s", output_frame_.c_str());
   RCLCPP_INFO(this->get_logger(), "[Params] Radius Filter: min = %.3f, max = %.3f",
               radius_min_, radius_max_);
   RCLCPP_INFO(this->get_logger(), "[Params] Label Filter: %s", label_filter_str.c_str());
+  RCLCPP_INFO(this->get_logger(), "[Params] use_latest_tf: %s",
+              use_latest_tf_ ? "true" : "false");
+  
 
   // Process label_filter parameter
   if (!label_filter_str.empty()) {
@@ -175,16 +183,35 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
     cloud->swap(tmp);
   }
 
+  if (cloud->points.empty())
+    return;
+
+
   // Transform to filter_frame if needed
   if (!filter_frame_.empty() && filter_frame_ != input_frame)
   {
+    // If use_latest_tf is false, use the sensor timestamp for transform lookups
+    rclcpp::Time lookup_time;
+    if (use_latest_tf_)
+    {
+      // Use the latest transform
+      lookup_time = rclcpp::Time(0);
+    }
+    else
+    {
+      // Convert msg->header.stamp (builtin_interfaces::msg::Time) to rclcpp::Time
+      lookup_time = rclcpp::Time(msg->header.stamp.sec, msg->header.stamp.nanosec);
+    }
     try {
-      auto transform = tf_buffer_.lookupTransform(filter_frame_, input_frame, rclcpp::Time(0),
+      auto transform = tf_buffer_.lookupTransform(filter_frame_,
+                                                  input_frame,
+                                                  lookup_time,
                                                   std::chrono::milliseconds(100));
       Eigen::Matrix4f eigen_transform = tf2::transformToEigen(transform).matrix().cast<float>();
       pcl::transformPointCloud(*cloud, *cloud, eigen_transform);
       input_frame = filter_frame_;
-    } catch (...) {
+    } catch (const tf2::TransformException &ex) {
+      RCLCPP_WARN(this->get_logger(), "Failed tf lookup in filter_frame transform: %s", ex.what());
       return;
     }
   }
@@ -260,13 +287,28 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
   // Transform to output_frame if needed
   if (!output_frame_.empty() && output_frame_ != input_frame)
   {
+    // use sensor stamp if not using latest TF
+    rclcpp::Time lookup_time;
+    if (use_latest_tf_)
+    {
+      // Use the latest transform
+      lookup_time = rclcpp::Time(0);
+    }
+    else
+    {
+      // Convert msg->header.stamp (builtin_interfaces::msg::Time) to rclcpp::Time
+      lookup_time = rclcpp::Time(msg->header.stamp.sec, msg->header.stamp.nanosec);
+    }
     try {
-      auto transform = tf_buffer_.lookupTransform(output_frame_, input_frame, rclcpp::Time(0),
+      auto transform = tf_buffer_.lookupTransform(output_frame_,
+                                                  input_frame,
+                                                  lookup_time,
                                                   std::chrono::milliseconds(100));
       Eigen::Matrix4f eigen_transform = tf2::transformToEigen(transform).matrix().cast<float>();
       pcl::transformPointCloud(*filtered, *filtered, eigen_transform);
       input_frame = output_frame_;
-    } catch (...) {
+    } catch (const tf2::TransformException &ex) {
+      RCLCPP_WARN(this->get_logger(), "Failed tf lookup in output_frame transform: %s", ex.what());
       return;
     }
   }
