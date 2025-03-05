@@ -35,6 +35,9 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_;
 
+  bool voxel_filter_enabled_;
+  double voxel_leaf_size_;  
+
   std::string filter_frame_;
   std::string output_frame_;
   double radius_min_;

@@ -2,6 +2,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include <pcl_ros/transforms.hpp>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/voxel_grid.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2/exceptions.h>
@@ -12,6 +13,7 @@
 #include <map>
 
 #include <omp.h>
+
 namespace pointcloud_server {
 
 FilterNode::FilterNode()
@@ -23,8 +25,6 @@ FilterNode::FilterNode()
   // Declare a param for the number of threads
   this->declare_parameter<int>("max_threads", 1);
   int max_threads = this->get_parameter("max_threads").as_int();
-
-  // If > 0, force that many OMP threads
   if (max_threads > 0)
   {
     omp_set_num_threads(max_threads);
@@ -39,7 +39,10 @@ FilterNode::FilterNode()
 
 void FilterNode::loadParameters()
 {
-  // Declare parameters.
+  // Declare parameters
+  this->declare_parameter<bool>("voxel_filter.enabled", false);
+  this->declare_parameter<double>("voxel_filter.leaf_size", 0.05);
+
   this->declare_parameter<std::string>("filter_frame", "");
   this->declare_parameter<std::string>("output_frame", "");
   this->declare_parameter<double>("radius_filter.min_dist", 0.0);
@@ -48,7 +51,13 @@ void FilterNode::loadParameters()
   this->declare_parameter<std::string>("min_filter", "");
   this->declare_parameter<std::string>("max_filter", "");
 
-  // Load basic parameters.
+  // Load voxel parameters
+  voxel_filter_enabled_ = this->get_parameter("voxel_filter.enabled").as_bool();
+  voxel_leaf_size_ = this->get_parameter("voxel_filter.leaf_size").as_double();
+  RCLCPP_INFO(this->get_logger(), "[Params] Voxel Filter: enabled=%d, leaf_size=%.3f",
+              voxel_filter_enabled_, voxel_leaf_size_);
+
+  // Load basic parameters
   filter_frame_ = this->get_parameter("filter_frame").as_string();
   output_frame_ = this->get_parameter("output_frame").as_string();
   radius_min_ = this->get_parameter("radius_filter.min_dist").as_double();
@@ -59,10 +68,11 @@ void FilterNode::loadParameters()
 
   RCLCPP_INFO(this->get_logger(), "[Params] Filter Frame: %s", filter_frame_.c_str());
   RCLCPP_INFO(this->get_logger(), "[Params] Output Frame: %s", output_frame_.c_str());
-  RCLCPP_INFO(this->get_logger(), "[Params] Radius Filter: min = %.3f, max = %.3f", radius_min_, radius_max_);
+  RCLCPP_INFO(this->get_logger(), "[Params] Radius Filter: min = %.3f, max = %.3f",
+              radius_min_, radius_max_);
   RCLCPP_INFO(this->get_logger(), "[Params] Label Filter: %s", label_filter_str.c_str());
 
-  // Process label_filter parameter.
+  // Process label_filter parameter
   if (!label_filter_str.empty()) {
     std::istringstream ss(label_filter_str);
     std::string token;
@@ -85,7 +95,7 @@ void FilterNode::loadParameters()
   if (max_filter_str.empty())
     max_filter_str = "~,~,~,~";
 
-  // Split the comma-separated strings into tokens.
+  // Split the comma-separated strings into tokens
   std::vector<std::string> tokens_min;
   std::vector<std::string> tokens_max;
   {
@@ -103,10 +113,11 @@ void FilterNode::loadParameters()
     }
   }
 
-  // Expecting 4 tokens: x, y, z, intensity.
+  // Expecting 4 tokens: x, y, z, intensity
   std::vector<std::string> fields = {"x", "y", "z", "intensity"};
   if (tokens_min.size() != 4 || tokens_max.size() != 4) {
-    RCLCPP_WARN(this->get_logger(), "[Params] min_filter or max_filter does not have 4 tokens; pass-through filtering disabled.");
+    RCLCPP_WARN(this->get_logger(),
+                "[Params] min_filter or max_filter does not have 4 tokens; pass-through filtering disabled.");
   } else {
     for (size_t i = 0; i < 4; i++) {
       bool use_min = false, use_max = false;
@@ -116,7 +127,8 @@ void FilterNode::loadParameters()
           min_val = std::stod(tokens_min[i]);
           use_min = true;
         } catch (...) {
-          RCLCPP_WARN(this->get_logger(), "[Params] Failed to parse min_filter token for field %s", fields[i].c_str());
+          RCLCPP_WARN(this->get_logger(),
+                      "[Params] Failed to parse min_filter token for field %s", fields[i].c_str());
         }
       }
       if (tokens_max[i] != "~") {
@@ -124,7 +136,8 @@ void FilterNode::loadParameters()
           max_val = std::stod(tokens_max[i]);
           use_max = true;
         } catch (...) {
-          RCLCPP_WARN(this->get_logger(), "[Params] Failed to parse max_filter token for field %s", fields[i].c_str());
+          RCLCPP_WARN(this->get_logger(),
+                      "[Params] Failed to parse max_filter token for field %s", fields[i].c_str());
         }
       }
       if (use_min || use_max) {
@@ -142,17 +155,27 @@ void FilterNode::loadParameters()
   }
 }
 
-
-
 void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   std::string input_frame = msg->header.frame_id;
   pcl::PointCloud<LidarSlam::LidarPoint>::Ptr cloud(new pcl::PointCloud<LidarSlam::LidarPoint>());
   pcl::fromROSMsg(*msg, *cloud);
+
   if (cloud->points.empty())
     return;
 
-  //T ransform to filter_frame if needed
+  // Voxel downsample if enabled
+  if (voxel_filter_enabled_ && voxel_leaf_size_ > 0.0)
+  {
+    pcl::VoxelGrid<LidarSlam::LidarPoint> voxel_filter;
+    voxel_filter.setLeafSize(voxel_leaf_size_, voxel_leaf_size_, voxel_leaf_size_);
+    voxel_filter.setInputCloud(cloud);
+    pcl::PointCloud<LidarSlam::LidarPoint> tmp;
+    voxel_filter.filter(tmp);
+    cloud->swap(tmp);
+  }
+
+  // Transform to filter_frame if needed
   if (!filter_frame_.empty() && filter_frame_ != input_frame)
   {
     try {
@@ -161,10 +184,12 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
       Eigen::Matrix4f eigen_transform = tf2::transformToEigen(transform).matrix().cast<float>();
       pcl::transformPointCloud(*cloud, *cloud, eigen_transform);
       input_frame = filter_frame_;
-    } catch (...) { return; }
+    } catch (...) {
+      return;
+    }
   }
 
-  // Filter in one pass, with some parallelization
+  // Filter in one pass, possibly parallel
   auto filtered = std::make_shared<pcl::PointCloud<LidarSlam::LidarPoint>>();
   filtered->points.reserve(cloud->points.size());
 
@@ -217,7 +242,7 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
       local_buffer.push_back(pt);
     } // end for
 
-    // Merge thread-local results into the main container
+    // Merge thread-local results
     #pragma omp critical
     filtered->points.insert(filtered->points.end(),
                             local_buffer.begin(),
@@ -241,10 +266,12 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
       Eigen::Matrix4f eigen_transform = tf2::transformToEigen(transform).matrix().cast<float>();
       pcl::transformPointCloud(*filtered, *filtered, eigen_transform);
       input_frame = output_frame_;
-    } catch (...) { return; }
+    } catch (...) {
+      return;
+    }
   }
 
-  // Publish
+  // 6) Publish
   filtered->header = cloud->header;  // keep original stamp
   filtered->header.frame_id = input_frame;
   sensor_msgs::msg::PointCloud2 out_msg;
