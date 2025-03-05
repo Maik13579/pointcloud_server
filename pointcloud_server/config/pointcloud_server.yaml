@@ -1,0 +1,53 @@
+global_pointcloud_server:
+  ros__parameters:
+    frame_id: "map"
+    map_path: "/maps/map.pcd"
+    GridSize: 50
+    VoxelResolution: 10.0
+    LeafSize: 0.1
+    MinFramesPerVoxel: 0
+    DecayingThreshold: -1.0
+    PublishFrequency: 0.2
+    # Sampling mode:
+    # 0: FIRST, 1: LAST, 2: MAX_INTENSITY, 3: CENTER_POINT, 4: CENTROID
+    Sampling: 2
+    ExpandOption: true
+    RollOption: true
+
+local_pointcloud_server:
+  ros__parameters:
+    frame_id: "map"
+    map_path: ""
+    GridSize: 10
+    VoxelResolution: 1.0
+    LeafSize: 0.05
+    MinFramesPerVoxel: 0
+    DecayingThreshold: 5.0
+    PublishFrequency: 1.0
+    # Sampling mode:
+    # 0: FIRST, 1: LAST, 2: MAX_INTENSITY, 3: CENTER_POINT, 4: CENTROID
+    Sampling: 2
+    ExpandOption: true
+    RollOption: true
+
+/lidar_filter:
+  ros__parameters:
+    filter_frame: "base_footprint"          # frame for filtering, empty uses input frame
+    output_frame: "map"                     # if empty, output in input frame
+    min_filter: "~,~,-1.25,~"               # min x,y,z,intensity "~" disables
+    max_filter: "~,~,1.25,~"                # max x,y,z,intensity "~" disables
+    radius_filter:
+      min_dist: 0.0                 # [m] disable if <=0
+      max_dist: 5.0                 # [m] disable if <=0
+    label_filter: ""                # only allow these labels, empty disables
+
+/label_filter: #removes all points that have a label >=1
+  ros__parameters:
+    filter_frame: ""                        # frame for filtering, empty uses input frame
+    output_frame: "map"                     # if empty, output in input frame
+    min_filter: "~,~,~,~"                   # min x,y,z,intensity "~" disables
+    max_filter: "~,~,~,~"                   # max x,y,z,intensity "~" disables
+    radius_filter:
+      min_dist: 0.0                 # [m] disable if <=0
+      max_dist: 0.0                 # [m] disable if <=0
+    label_filter: "0"               # only allow these labels, empty disables
