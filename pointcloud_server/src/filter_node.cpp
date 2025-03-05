@@ -178,10 +178,7 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
     auto & pt = cloud->points[idx];
     
     if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || !std::isfinite(pt.z))
-    {
-      RCLCPP_WARN(this->get_logger(), "Skipping point %lu with non-finite coordinates", static_cast<unsigned long>(idx));
       continue;
-    }
     
     bool pass = true;
     for (const auto & filter : pass_through_filters_)
@@ -199,8 +196,6 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
         continue;
       
       if (!std::isfinite(value)) {
-        RCLCPP_WARN(this->get_logger(), "Non-finite value in field %s at point %lu", 
-                    filter.field.c_str(), static_cast<unsigned long>(idx));
         pass = false;
         break;
       }
