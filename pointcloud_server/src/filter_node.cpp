@@ -11,6 +11,7 @@
 #include <chrono>
 #include <map>
 
+#include <omp.h>
 namespace pointcloud_server {
 
 FilterNode::FilterNode()
@@ -18,6 +19,18 @@ FilterNode::FilterNode()
 {
   tf_buffer_.setUsingDedicatedThread(true);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_, this, false);
+
+  // Declare a param for the number of threads
+  this->declare_parameter<int>("max_threads", 1);
+  int max_threads = this->get_parameter("max_threads").as_int();
+
+  // If > 0, force that many OMP threads
+  if (max_threads > 0)
+  {
+    omp_set_num_threads(max_threads);
+    RCLCPP_INFO(this->get_logger(), "OpenMP threads set to %d", max_threads);
+  }
+
   loadParameters();
   sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "~/input", 10, std::bind(&FilterNode::pointCloudCallback, this, std::placeholders::_1));
@@ -129,133 +142,111 @@ void FilterNode::loadParameters()
   }
 }
 
+
+
 void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   std::string input_frame = msg->header.frame_id;
-  std::string proc_frame = input_frame;
-  
-  // Convert incoming ROS point cloud to PCL format.
   pcl::PointCloud<LidarSlam::LidarPoint>::Ptr cloud(new pcl::PointCloud<LidarSlam::LidarPoint>());
   pcl::fromROSMsg(*msg, *cloud);
-
-  // Skip processing if cloud is empty.
-  if(cloud->points.empty()) {
-    RCLCPP_WARN(this->get_logger(), "Received empty point cloud");
+  if (cloud->points.empty())
     return;
-  }
 
-  // Transform to filter frame if needed.
+  //T ransform to filter_frame if needed
   if (!filter_frame_.empty() && filter_frame_ != input_frame)
   {
-    try
-    {
-      auto transform = tf_buffer_.lookupTransform(filter_frame_, input_frame, rclcpp::Time(0), std::chrono::milliseconds(100));
+    try {
+      auto transform = tf_buffer_.lookupTransform(filter_frame_, input_frame, rclcpp::Time(0),
+                                                  std::chrono::milliseconds(100));
       Eigen::Matrix4f eigen_transform = tf2::transformToEigen(transform).matrix().cast<float>();
-      pcl::PointCloud<LidarSlam::LidarPoint>::Ptr cloud_trans(new pcl::PointCloud<LidarSlam::LidarPoint>());
-      try {
-        pcl::transformPointCloud(*cloud, *cloud_trans, eigen_transform);
-      } catch (std::exception &ex) {
-        RCLCPP_ERROR(this->get_logger(), "Exception during transformPointCloud (filter frame): %s", ex.what());
-        return;
-      }
-      cloud = cloud_trans;
-      proc_frame = filter_frame_;
-    }
-    catch (const tf2::TransformException & ex)
-    {
-      RCLCPP_ERROR(this->get_logger(), "Transform error from %s to %s: %s", 
-                   input_frame.c_str(), filter_frame_.c_str(), ex.what());
-      return;
-    }
+      pcl::transformPointCloud(*cloud, *cloud, eigen_transform);
+      input_frame = filter_frame_;
+    } catch (...) { return; }
   }
 
-  // Create a new cloud for filtered points.
-  pcl::PointCloud<LidarSlam::LidarPoint>::Ptr filtered(new pcl::PointCloud<LidarSlam::LidarPoint>());
-  
-  // Process each point.
-  for (size_t idx = 0; idx < cloud->points.size(); idx++)
+  // Filter in one pass, with some parallelization
+  auto filtered = std::make_shared<pcl::PointCloud<LidarSlam::LidarPoint>>();
+  filtered->points.reserve(cloud->points.size());
+
+  #pragma omp parallel
   {
-    auto & pt = cloud->points[idx];
-    
-    if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || !std::isfinite(pt.z))
-      continue;
-    
-    bool pass = true;
-    for (const auto & filter : pass_through_filters_)
+    std::vector<LidarSlam::LidarPoint> local_buffer;
+    local_buffer.reserve(cloud->points.size() / omp_get_num_threads() + 1);
+
+    #pragma omp for
+    for (int i = 0; i < static_cast<int>(cloud->points.size()); i++)
     {
-      double value = 0.0;
-      if (filter.field == "x")
-        value = pt.x;
-      else if (filter.field == "y")
-        value = pt.y;
-      else if (filter.field == "z")
-        value = pt.z;
-      else if (filter.field == "intensity")
-        value = pt.intensity;
-      else
+      const auto& pt = cloud->points[i];
+      if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || !std::isfinite(pt.z))
         continue;
-      
-      if (!std::isfinite(value)) {
-        pass = false;
-        break;
+
+      // Pass-through checks
+      bool pass = true;
+      for (const auto & filter : pass_through_filters_)
+      {
+        double value = 0.0;
+        if      (filter.field == "x")         value = pt.x;
+        else if (filter.field == "y")         value = pt.y;
+        else if (filter.field == "z")         value = pt.z;
+        else if (filter.field == "intensity") value = pt.intensity;
+        else continue;
+
+        if (!std::isfinite(value) ||
+            (filter.use_min && value < filter.min) ||
+            (filter.use_max && value > filter.max))
+        {
+          pass = false;
+          break;
+        }
       }
-      if (filter.use_min && value < filter.min) {
-        pass = false;
-        break;
-      }
-      if (filter.use_max && value > filter.max) {
-        pass = false;
-        break;
-      }
-    }
-    if (!pass)
-      continue;
-    
-    double dist = std::sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z);
-    if ((radius_min_ > 0.0 && dist < radius_min_) || (radius_max_ > 0.0 && dist > radius_max_))
-      continue;
-    
-    if (!allowed_labels_.empty()) {
-      if (std::find(allowed_labels_.begin(), allowed_labels_.end(), pt.label) == allowed_labels_.end())
+      if (!pass)
         continue;
-    }
-    
-    filtered->points.push_back(pt);
-  }
+
+      // Radius check
+      double dist = std::sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z);
+      if ((radius_min_ > 0.0 && dist < radius_min_) ||
+          (radius_max_ > 0.0 && dist > radius_max_))
+        continue;
+
+      // Label check
+      if (!allowed_labels_.empty() &&
+          std::find(allowed_labels_.begin(), allowed_labels_.end(), pt.label) == allowed_labels_.end())
+        continue;
+
+      // If it passes everything, stash locally
+      local_buffer.push_back(pt);
+    } // end for
+
+    // Merge thread-local results into the main container
+    #pragma omp critical
+    filtered->points.insert(filtered->points.end(),
+                            local_buffer.begin(),
+                            local_buffer.end());
+  } // end parallel
 
   if (filtered->points.empty())
     return;
 
+  // Set geometry
   filtered->width = filtered->points.size();
   filtered->height = 1;
   filtered->is_dense = true;
 
-  // Transform filtered cloud to target frame if necessary.
-  std::string target_frame = (!output_frame_.empty()) ? output_frame_ : input_frame;
-  if (target_frame != proc_frame)
+  // Transform to output_frame if needed
+  if (!output_frame_.empty() && output_frame_ != input_frame)
   {
-    try
-    {
-      auto transform = tf_buffer_.lookupTransform(target_frame, proc_frame, rclcpp::Time(0), std::chrono::milliseconds(100));
+    try {
+      auto transform = tf_buffer_.lookupTransform(output_frame_, input_frame, rclcpp::Time(0),
+                                                  std::chrono::milliseconds(100));
       Eigen::Matrix4f eigen_transform = tf2::transformToEigen(transform).matrix().cast<float>();
-      pcl::PointCloud<LidarSlam::LidarPoint>::Ptr cloud_trans(new pcl::PointCloud<LidarSlam::LidarPoint>());
-      try {
-        pcl::transformPointCloud(*filtered, *cloud_trans, eigen_transform);
-      } catch (std::exception &ex) {
-        RCLCPP_ERROR(this->get_logger(), "Exception during transformPointCloud (target frame): %s", ex.what());
-        return;
-      }
-      filtered = cloud_trans;
-    }
-    catch (const tf2::TransformException & ex)
-    {
-      RCLCPP_ERROR(this->get_logger(), "Transform error from %s to %s: %s", 
-                   proc_frame.c_str(), target_frame.c_str(), ex.what());
-      return;
-    }
+      pcl::transformPointCloud(*filtered, *filtered, eigen_transform);
+      input_frame = output_frame_;
+    } catch (...) { return; }
   }
-  filtered->header = cloud->header;
-  filtered->header.frame_id = target_frame;
+
+  // Publish
+  filtered->header = cloud->header;  // keep original stamp
+  filtered->header.frame_id = input_frame;
   sensor_msgs::msg::PointCloud2 out_msg;
   pcl::toROSMsg(*filtered, out_msg);
   out_msg.header.stamp = this->now();

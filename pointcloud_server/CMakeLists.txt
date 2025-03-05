@@ -15,7 +15,7 @@ find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
-
+find_package(OpenMP REQUIRED)
 
 # Locate nanoflann header
 find_path(NANOFLLAN_INCLUDE_DIR nanoflann.hpp)
@@ -66,6 +66,11 @@ ament_target_dependencies(filter_node
 target_link_libraries(filter_node
   ${PCL_LIBRARIES}
 )
+
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(pointcloud_server_node OpenMP::OpenMP_CXX)
+  target_link_libraries(filter_node OpenMP::OpenMP_CXX)
+endif()
 
 install(TARGETS pointcloud_server_node
   DESTINATION lib/${PROJECT_NAME}
