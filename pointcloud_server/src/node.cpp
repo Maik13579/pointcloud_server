@@ -26,8 +26,8 @@ PointcloudServerNode::PointcloudServerNode()
   rolling_grid_->SetSampling(sampling_);
 
   // Create publishers for map and submap
-  map_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("map", 10);
-  submap_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("submap", 10);
+  map_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/map", 10);
+  submap_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/submap", 10);
 
   // Create timer for periodic publishing based on publish_frequency_
   publish_timer_ = this->create_wall_timer(
@@ -37,7 +37,7 @@ PointcloudServerNode::PointcloudServerNode()
 
   // Create publisher and subscriber for add / labelNewPoints
   add_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/add_input", 10,
+    "~/add", 10,
     std::bind(&PointcloudServerNode::addCallbackPubSub, this, std::placeholders::_1)
   );
 
@@ -196,6 +196,11 @@ void PointcloudServerNode::addCallbackPubSub(const sensor_msgs::msg::PointCloud2
   try {
     // Use the roll_option_ parameter to control the behavior.
     rolling_grid_->Add(cloud_ptr, roll_option_);
+
+    // Clear old points
+    double currentTime = msg->header.stamp.sec + (msg->header.stamp.nanosec * 1e-9);
+    rolling_grid_->ClearPoints(currentTime);
+
   } catch (const std::exception &e) {
     RCLCPP_ERROR(this->get_logger(), "Error in addCallbackPubSub: %s", e.what());
   }
