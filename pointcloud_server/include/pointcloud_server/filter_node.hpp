@@ -47,6 +47,7 @@ private:
   double radius_max_;
   std::vector<PassThroughFilter> pass_through_filters_;
   std::vector<int> allowed_labels_;
+  bool invert_label_filter_;
 
   tf2_ros::Buffer tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

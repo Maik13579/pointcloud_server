@@ -57,6 +57,7 @@ void FilterNode::loadParameters()
   this->declare_parameter<std::string>("max_filter", "");
 
   this->declare_parameter<bool>("use_latest_tf", true);
+  this->declare_parameter<bool>("invert_label_filter", false);
 
 
   // Load voxel parameters
@@ -75,6 +76,7 @@ void FilterNode::loadParameters()
   std::string max_filter_str = this->get_parameter("max_filter").as_string();
 
   use_latest_tf_ = this->get_parameter("use_latest_tf").as_bool();
+  invert_label_filter_ = this->get_parameter("invert_label_filter").as_bool();
 
   RCLCPP_INFO(this->get_logger(), "[Params] Filter Frame: %s", filter_frame_.c_str());
   RCLCPP_INFO(this->get_logger(), "[Params] Output Frame: %s", output_frame_.c_str());
@@ -83,6 +85,8 @@ void FilterNode::loadParameters()
   RCLCPP_INFO(this->get_logger(), "[Params] Label Filter: %s", label_filter_str.c_str());
   RCLCPP_INFO(this->get_logger(), "[Params] use_latest_tf: %s",
               use_latest_tf_ ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "[Params] invert_label_filter: %s",
+              invert_label_filter_ ? "true" : "false");
   
 
   // Process label_filter parameter
@@ -266,10 +270,12 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
         continue;
 
       // Label check
-      if (!allowed_labels_.empty() &&
-          std::find(allowed_labels_.begin(), allowed_labels_.end(), pt.label) == allowed_labels_.end())
-        continue;
-
+      if (!allowed_labels_.empty()) {
+        bool is_allowed = std::find(allowed_labels_.begin(), allowed_labels_.end(), pt.label) != allowed_labels_.end();
+        if ((invert_label_filter_ && is_allowed) || (!invert_label_filter_ && !is_allowed))
+          continue;
+      }
+      
       // If it passes everything, stash locally
       local_buffer.push_back(pt);
     } // end for
