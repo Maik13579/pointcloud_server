@@ -117,7 +117,8 @@ def generate_launch_description():
         namespace=LaunchConfiguration('namespace'),
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
-            ('~/input', 'local_pointcloud_server/map')
+            ('~/input', 'local_pointcloud_server/map'),
+            ('~/obstacle_markers', '/obstacles/markers')
         ]
     )
 
