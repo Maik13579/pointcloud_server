@@ -117,6 +117,8 @@ public:
   //! If roll is true, the map is rolled first so that all new points to add can fit in rolled map.
   //! If points are added, the sub-map KD-tree is cleared.
   void Add(const PointCloud::Ptr& pointcloud, bool roll = true);
+  //! Increment dynamic counter for each voxel containing a point
+  void IncrementDynamic(const PointCloud::Ptr& pointcloud);
   //============================================================================
   //   Sub map use
   //============================================================================

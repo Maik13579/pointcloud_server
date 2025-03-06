@@ -125,13 +125,20 @@ RollingGrid::PointCloud::Ptr RollingGrid::Get(double p, bool probability_to_inte
     // Loop on the inner voxels (sampling vg)
     for (const auto& kvIn : kvOut.second)
     {
+      const auto& voxel = kvIn.second;
+
+      // Ensure we only extract initialized points
+      if (voxel.static_count + voxel.dynamic_count == 0)
+        continue; // Skip invalid voxels
+
       // If all points can be used or if the point
       // does not lie in a moving object, extract it.
-      if (this->GetP(kvIn.second) >= p)
+      double prob = this->GetP(voxel);
+      if (prob >= p)
       {
-        LidarSlam::LidarPoint pt = kvIn.second.point; // Copy the point
+        LidarSlam::LidarPoint pt = voxel.point; // Copy the point
         if (probability_to_intensity)
-          pt.intensity = this->GetP(kvIn.second);
+          pt.intensity = prob;
         pc->push_back(pt);
       }
     }
@@ -343,6 +350,47 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool roll)
   if (updated)
     this->KdTree.Reset();
 }
+
+void RollingGrid::IncrementDynamic(const PointCloud::Ptr& pointcloud)
+{
+ if (pointcloud->empty())
+  {
+    PRINT_WARNING("Pointcloud is empty, voxel grid not updated.");
+    return;
+  }
+
+  // Compute the position of the origin cell (0,0,0) of the grid
+  Eigen::Array3f voxelGridOrigin = this->VoxelGridPosition - (this->GridSize / 2) * this->VoxelWidth;
+  for (const Point& point : *pointcloud)
+  {
+    Eigen::Array3i voxelCoordOut = Utils::PositionToVoxel<Eigen::Array3f>(point.getArray3fMap(), voxelGridOrigin, this->VoxelWidth);
+    if (!((0 <= voxelCoordOut) && (voxelCoordOut < this->GridSize)).all())
+      continue; // Skip points that are outside the grid
+
+    unsigned int idxOut = this->To1d(voxelCoordOut, this->GridSize);
+    if (!this->Voxels.count(idxOut))
+      continue;  // Skip outer voxels that do not exist
+
+    Eigen::Array3f voxelGridCenterIn = voxelCoordOut.cast<float>() * this->VoxelWidth + voxelGridOrigin;
+    Eigen::Array3i voxelCoordIn = Utils::PositionToVoxel<Eigen::Array3f>(point.getArray3fMap(), voxelGridCenterIn, this->LeafSize);
+    unsigned int idxIn = this->To1d(voxelCoordIn, this->GridInSize);
+
+    auto& innerVoxelGrid = this->Voxels[idxOut];
+
+    if (!innerVoxelGrid.count(idxIn))
+    {
+      continue; // Skip inner voxels that do not exist
+    }
+    
+    auto& voxel = innerVoxelGrid[idxIn];
+    if (voxel.point.label > 0)
+      continue;
+
+    voxel.dynamic_count++;
+    
+  }
+}
+
 
 //------------------------------------------------------------------------------
 void RollingGrid::LabelNewPoints(PointCloud::Ptr& pointcloud, bool expand) const

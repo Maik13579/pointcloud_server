@@ -145,6 +145,7 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
             ('~/input', 'global_pointcloud_server/label_new_points_input'),
+            ('~/freespace_cloud', 'global_pointcloud_server/freespace')
         ],
         condition=IfCondition(
             PythonExpression([
@@ -163,6 +164,7 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
             ('~/input', 'global_pointcloud_server/add'),
+            ('~/freespace_cloud', 'global_pointcloud_server/freespace')
         ],
         condition=IfCondition(
             PythonExpression([
