@@ -15,6 +15,8 @@ class FreespaceDetectionNode : public rclcpp::Node
 {
 public:
   FreespaceDetectionNode();
+  explicit FreespaceDetectionNode(const rclcpp::NodeOptions& options);
+
 
 private:
   void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);

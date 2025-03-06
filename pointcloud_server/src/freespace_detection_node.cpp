@@ -5,13 +5,20 @@
 #include <tf2/exceptions.h>
 #include <Eigen/Dense>
 
+#include <rclcpp_components/register_node_macro.hpp>
+
+
 namespace freespace_detection
 {
 
 FreespaceDetectionNode::FreespaceDetectionNode()
-: Node("freespace_detection"), tf_buffer_(this->get_clock())
+: FreespaceDetectionNode(rclcpp::NodeOptions())
 {
-  // Start the TF buffer in a dedicated thread
+}
+
+FreespaceDetectionNode::FreespaceDetectionNode(const rclcpp::NodeOptions& options)
+: Node("freespace_detection", options), tf_buffer_(this->get_clock())
+{
   tf_buffer_.setUsingDedicatedThread(true);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
 
@@ -20,8 +27,8 @@ FreespaceDetectionNode::FreespaceDetectionNode()
   this->declare_parameter<double>("sampling_dist", 0.1);
   this->declare_parameter<double>("sampling_thresh", 0.2);
 
-  lidar_frame_    = this->get_parameter("lidar_frame").as_string();
-  sampling_dist_  = this->get_parameter("sampling_dist").as_double();
+  lidar_frame_     = this->get_parameter("lidar_frame").as_string();
+  sampling_dist_   = this->get_parameter("sampling_dist").as_double();
   sampling_thresh_ = this->get_parameter("sampling_thresh").as_double();
 
   RCLCPP_INFO(this->get_logger(),
@@ -35,6 +42,7 @@ FreespaceDetectionNode::FreespaceDetectionNode()
 
   pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/freespace_cloud", 10);
 }
+
 
 void FreespaceDetectionNode::pointCloudCallback(
   const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -124,3 +132,5 @@ void FreespaceDetectionNode::pointCloudCallback(
 }
 
 }  // namespace freespace_detection
+
+RCLCPP_COMPONENTS_REGISTER_NODE(freespace_detection::FreespaceDetectionNode)

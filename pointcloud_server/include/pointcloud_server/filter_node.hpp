@@ -27,6 +27,7 @@ class FilterNode : public rclcpp::Node
 {
 public:
   FilterNode();
+  explicit FilterNode(const rclcpp::NodeOptions & options);
   
 private:
   void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);

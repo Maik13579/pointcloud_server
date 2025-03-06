@@ -7,11 +7,17 @@
 #include "pointcloud_server/LidarPoint.h"
 #include <Eigen/Core>
 
+#include <rclcpp_components/register_node_macro.hpp>
+
+
 namespace pointcloud_server
 {
 
 PointcloudServerNode::PointcloudServerNode()
-: Node("pointcloud_server")
+: PointcloudServerNode(rclcpp::NodeOptions()) {}
+
+PointcloudServerNode::PointcloudServerNode(const rclcpp::NodeOptions & options)
+: Node("pointcloud_server", options)
 {
   // Load parameters from the parameter server
   loadParameters();
@@ -664,3 +670,5 @@ void PointcloudServerNode::setVoxelResolutionCallback(
 
 
 } // namespace pointcloud_server
+
+RCLCPP_COMPONENTS_REGISTER_NODE(pointcloud_server::PointcloudServerNode)

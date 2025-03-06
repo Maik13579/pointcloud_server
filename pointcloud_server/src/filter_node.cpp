@@ -14,10 +14,15 @@
 
 #include <omp.h>
 
+#include <rclcpp_components/register_node_macro.hpp>
+
+
 namespace pointcloud_server {
 
-FilterNode::FilterNode()
-: Node("lidar_filter"), tf_buffer_(this->get_clock())
+FilterNode::FilterNode() : FilterNode(rclcpp::NodeOptions()) {}
+
+FilterNode::FilterNode(const rclcpp::NodeOptions& options)
+: Node("lidar_filter", options), tf_buffer_(this->get_clock())
 {
   tf_buffer_.setUsingDedicatedThread(true);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_, this, false);
@@ -323,3 +328,6 @@ void FilterNode::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedP
 }
 
 } // namespace pointcloud_server
+
+
+RCLCPP_COMPONENTS_REGISTER_NODE(pointcloud_server::FilterNode)
