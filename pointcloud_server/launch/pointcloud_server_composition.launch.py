@@ -109,6 +109,18 @@ def generate_launch_description():
         ]
     )
 
+    # Obstacle Tracker node
+    obstacle_tracker_node = ComposableNode(
+        package='pointcloud_server',
+        plugin='pointcloud_server::ObstacleTrackerNode',
+        name='obstacle_tracker',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('~/input', 'local_pointcloud_server/map')
+        ]
+    )
+
     # 4) Freespace detection node (enabled if param freespace_detection == "true")
     freespace_node_localization = ComposableNode(
         package='pointcloud_server',
@@ -184,6 +196,7 @@ def generate_launch_description():
             local_server_node,
             lidar_filter_localization_node,
             label_filter_node,
+            obstacle_tracker_node,  
             freespace_node_localization,
             freespace_label_filter_node
         ],

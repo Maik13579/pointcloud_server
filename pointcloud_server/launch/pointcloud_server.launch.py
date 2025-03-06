@@ -133,6 +133,22 @@ def generate_launch_description():
         )
     )
 
+    # obstacle tracker node
+    obstacle_tracker_node = Node(
+        namespace=LaunchConfiguration('namespace'),
+        package='pointcloud_server',
+        executable='obstacle_tracker_node',
+        name='obstacle_tracker',
+        output='screen',
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('~/input', 'local_pointcloud_server/map'),
+        ],
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration('mode'), "' == 'localization'"])
+        )
+    )
+
     # Freespace LabelFilter Node
     freespace_label_filter_node = Node(
         namespace=LaunchConfiguration('namespace'),
@@ -218,6 +234,7 @@ def generate_launch_description():
         local_server_node,
         lidar_filter_localization_node,
         label_filter_node,
+        obstacle_tracker_node,
 
         # Freespace detection
         freespace_node_localization,

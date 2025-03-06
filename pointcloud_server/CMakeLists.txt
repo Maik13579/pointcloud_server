@@ -17,6 +17,8 @@ find_package(pcl_ros REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
 
 # Locate nanoflann header
 find_path(NANOFLLAN_INCLUDE_DIR nanoflann.hpp)
@@ -140,12 +142,49 @@ rclcpp_components_register_nodes(freespace_detection_component
 )
 
 # -------------------------------------------------------------------
+# 4) obstacle_tracker_node as library (component) + executable
+# -------------------------------------------------------------------
+add_library(obstacle_tracker_component SHARED
+  src/obstacle_tracker_node.cpp
+)
+ament_target_dependencies(obstacle_tracker_component
+  rclcpp
+  rclcpp_components
+  sensor_msgs
+  visualization_msgs
+  pcl_conversions
+  pcl_ros
+  Eigen3
+)
+target_link_libraries(obstacle_tracker_component
+  ${PCL_LIBRARIES}
+)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(obstacle_tracker_component OpenMP::OpenMP_CXX)
+endif()
+
+rclcpp_components_register_nodes(obstacle_tracker_component
+  "pointcloud_server::ObstacleTrackerNode"
+)
+
+add_executable(obstacle_tracker_node
+  src/main_obstacle_tracker_node.cpp
+)
+target_link_libraries(obstacle_tracker_node
+  obstacle_tracker_component
+)
+install(TARGETS obstacle_tracker_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# -------------------------------------------------------------------
 # Common Installs
 # -------------------------------------------------------------------
 install(TARGETS
   pointcloud_server_component
   filter_node_component
   freespace_detection_component
+  obstacle_tracker_component
   DESTINATION lib
 )
 

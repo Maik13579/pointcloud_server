@@ -63,6 +63,17 @@ local_pointcloud_server:
     label_filter: "0"               # only allow these labels, empty disables
     invert_label_filter: false
 
+/obstacle_tracker:
+  ros__parameters:
+    min_cluster_size: 10
+    max_cluster_size: 250000
+    cluster_tolerance: 0.5
+    tracking_distance_tolerance: 0.5
+    stale_frame_threshold: 5
+    velocity_history_size: 5
+    prediction_time: 1.0
+
+
 /freespace_detection: # creates a free space cloud from the filtered cloud
   ros__parameters:
     lidar_frame: "velodyne"
