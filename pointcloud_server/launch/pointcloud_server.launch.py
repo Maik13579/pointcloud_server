@@ -133,6 +133,27 @@ def generate_launch_description():
         )
     )
 
+    # Freespace LabelFilter Node
+    freespace_label_filter_node = Node(
+        namespace=LaunchConfiguration('namespace'),
+        package='pointcloud_server',
+        executable='filter_node',
+        name='freespace_label_filter',
+        output='screen',
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('~/input', 'global_pointcloud_server/freespace_label_output'),
+            #('~/filtered', 'local_pointcloud_server/freespace')
+        ],
+        condition=IfCondition(
+            PythonExpression([
+                "'", LaunchConfiguration('freespace_detection'),
+                "' == 'true' and '", LaunchConfiguration('mode'),
+                "' == 'localization'"
+            ])
+        )
+    )
+
     # -------------------------
     # Freespace Detection Node
     # -------------------------
@@ -145,7 +166,7 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
             ('~/input', 'global_pointcloud_server/label_new_points_input'),
-            ('~/freespace_cloud', 'global_pointcloud_server/freespace')
+            ('~/freespace_cloud', 'global_pointcloud_server/freespace_label_input')
         ],
         condition=IfCondition(
             PythonExpression([
@@ -200,5 +221,6 @@ def generate_launch_description():
 
         # Freespace detection
         freespace_node_localization,
-        freespace_node_mapping
+        freespace_node_mapping,
+        freespace_label_filter_node
     ])

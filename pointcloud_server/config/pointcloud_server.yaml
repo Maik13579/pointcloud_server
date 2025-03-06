@@ -61,9 +61,26 @@ local_pointcloud_server:
       min_dist: 0.0                 # [m] disable if <=0
       max_dist: 0.0                 # [m] disable if <=0
     label_filter: "0"               # only allow these labels, empty disables
+    invert_label_filter: false
 
 /freespace_detection: # creates a free space cloud from the filtered cloud
   ros__parameters:
     lidar_frame: "velodyne"
     sampling_dist: 0.1            # [m] distance between sampled points
     sampling_thresh: 0.3          # [m] distance to stay away from obstacles
+
+/freespace_label_filter: #removes all points that have a label != 0
+  ros__parameters:
+    filter_frame: ""                        # frame for filtering, empty uses input frame
+    output_frame: "map"                     # if empty, output in input frame
+    use_latest_tf: false
+    voxel_filter:
+      enabled: false
+      leaf_size: 0.0
+    min_filter: "~,~,~,~"                   # min x,y,z,intensity "~" disables
+    max_filter: "~,~,~,~"                   # max x,y,z,intensity "~" disables
+    radius_filter:
+      min_dist: 0.0                 # [m] disable if <=0
+      max_dist: 0.0                 # [m] disable if <=0
+    label_filter: "0"               # only allow these labels, empty disables
+    invert_label_filter: true       # invert label filter

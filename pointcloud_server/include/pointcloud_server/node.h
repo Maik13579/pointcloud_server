@@ -61,7 +61,11 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr add_subscriber_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr label_new_points_subscriber_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr label_new_point_publisher_;
+  
+  // Publisher / Subscriber for freespace
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr freespace_subscriber_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr freespace_label_subscriber_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr freespace_label_publisher_;
 
   // Params for add / labelNewPoints via publisher/subscriber
   bool roll_option_;
@@ -90,6 +94,7 @@ private:
   void labelNewPointsCallbackPubSub(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   
   void freespaceCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  void freespaceLabelCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
   // Service callbacks
   void addCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::Add::Request> request,

@@ -58,6 +58,12 @@ PointcloudServerNode::PointcloudServerNode(const rclcpp::NodeOptions & options)
     std::bind(&PointcloudServerNode::freespaceCallback, this, std::placeholders::_1)
   );
 
+  freespace_label_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    "~/freespace_label_input", 10,
+    std::bind(&PointcloudServerNode::freespaceLabelCallback, this, std::placeholders::_1)
+  );
+  freespace_label_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/freespace_label_output", 10);
+
 
   // Create service servers with stub callbacks
   add_service_ = this->create_service<pointcloud_server_interfaces::srv::Add>(
@@ -254,6 +260,27 @@ void PointcloudServerNode::freespaceCallback(const sensor_msgs::msg::PointCloud2
 
   } catch (const std::exception &e) {
     RCLCPP_ERROR(this->get_logger(), "Error in freespaceCallback: %s", e.what());
+  }
+}
+
+void PointcloudServerNode::freespaceLabelCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+    // Convert the incoming message to a PCL cloud.
+  pcl::PointCloud<LidarSlam::LidarPoint> pcl_cloud;
+  pcl::fromROSMsg(*msg, pcl_cloud);
+  auto cloud_ptr = std::make_shared<pcl::PointCloud<LidarSlam::LidarPoint>>(pcl_cloud);
+  try {
+    rolling_grid_->LabelNewPoints(cloud_ptr, false); // Dont expand
+    // Publish the labeled cloud on the freespace_label topic.
+    if (freespace_label_publisher_->get_subscription_count() > 0) {
+      sensor_msgs::msg::PointCloud2 out_msg;
+      pcl::toROSMsg(*cloud_ptr, out_msg);
+      out_msg.header.stamp = msg->header.stamp;
+      out_msg.header.frame_id = frame_id_;
+      freespace_label_publisher_->publish(out_msg);
+    }
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(this->get_logger(), "Error in freespaceLabelCallback: %s", e.what());
   }
 }
 

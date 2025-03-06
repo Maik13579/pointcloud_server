@@ -118,7 +118,7 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
             ('~/input', 'global_pointcloud_server/label_new_points_input'),
-            ('~/freespace_cloud', 'global_pointcloud_server/freespace')
+            ('~/freespace_cloud', 'global_pointcloud_server/freespace_label_input')
         ],
         condition=IfCondition(
             PythonExpression([
@@ -149,6 +149,26 @@ def generate_launch_description():
         )
     )
 
+    freespace_label_filter_node = ComposableNode(
+        package='pointcloud_server',
+        plugin='pointcloud_server::FilterNode',
+        name='freespace_label_filter',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('~/input', 'global_pointcloud_server/freespace_label_output'),
+            #('~/filtered', 'global_pointcloud_server/freespace_label_input')
+        ],
+        condition=IfCondition(
+            PythonExpression([
+                "'", LaunchConfiguration('freespace_detection'),
+                "' == 'true' and '", LaunchConfiguration('mode'),
+                "' == 'localization'"
+            ])
+        )
+        
+    )
+
     # -------------------------
     # Composable Node Containers
     # -------------------------
@@ -164,7 +184,8 @@ def generate_launch_description():
             local_server_node,
             lidar_filter_localization_node,
             label_filter_node,
-            freespace_node_localization
+            freespace_node_localization,
+            freespace_label_filter_node
         ],
         parameters=[LaunchConfiguration('params_file')],
         condition=IfCondition(
