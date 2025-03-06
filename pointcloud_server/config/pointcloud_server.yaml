@@ -59,3 +59,9 @@ local_pointcloud_server:
       min_dist: 0.0                 # [m] disable if <=0
       max_dist: 0.0                 # [m] disable if <=0
     label_filter: "0"               # only allow these labels, empty disables
+
+/freespace_detection: # creates a free space cloud from the filtered cloud
+  ros__parameters:
+    lidar_frame: "velodyne"
+    sampling_dist: 0.1            # [m] distance between sampled points
+    sampling_thresh: 0.3          # [m] distance to stay away from obstacles

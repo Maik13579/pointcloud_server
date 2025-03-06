@@ -43,6 +43,10 @@ add_executable(filter_node
   src/filter_node.cpp
 )
 
+add_executable(freespace_detection_node
+  src/main_freespace_detection_node.cpp
+  src/freespace_detection_node.cpp)
+
 ament_target_dependencies(pointcloud_server_node
   rclcpp
   pointcloud_server_interfaces
@@ -67,6 +71,18 @@ target_link_libraries(filter_node
   ${PCL_LIBRARIES}
 )
 
+ament_target_dependencies(freespace_detection_node
+  rclcpp
+  pcl_ros
+  pcl_conversions
+  tf2_ros
+  tf2_eigen
+)
+
+target_link_libraries(freespace_detection_node
+  ${PCL_LIBRARIES}
+)
+
 if(OpenMP_CXX_FOUND)
   target_link_libraries(pointcloud_server_node OpenMP::OpenMP_CXX)
   target_link_libraries(filter_node OpenMP::OpenMP_CXX)
@@ -77,6 +93,10 @@ install(TARGETS pointcloud_server_node
 )
 
 install(TARGETS filter_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS freespace_detection_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

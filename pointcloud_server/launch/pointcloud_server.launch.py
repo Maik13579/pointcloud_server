@@ -41,6 +41,12 @@ def generate_launch_description():
         description='SLAM mode [mapping | localization]'
     )
 
+    freespace_arg = DeclareLaunchArgument(
+        'freespace_detection',
+        default_value='false',
+        description='Enable freespace detection'
+    )
+
     # Always start the global map server
     global_server_node = Node(
         namespace=LaunchConfiguration('namespace'),
@@ -115,14 +121,32 @@ def generate_launch_description():
         )
     )
 
+    # Start freespace detection node
+    freespace_node = Node(
+        namespace=LaunchConfiguration('namespace'),
+        package='pointcloud_server',
+        executable='freespace_detection_node',
+        name='freespace_detection',
+        output='screen',
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('~/input',    'global_pointcloud_server/label_new_points_input'),
+        ],
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration('freespace_detection'), "' == 'true'"])
+        )
+    )
+
     return LaunchDescription([
         namespace_arg,
         param_file_arg,
         input_topic_arg,
         mode_arg,
+        freespace_arg,
         global_server_node,
         local_server_node,
         lidar_filter_mapping_node,
         lidar_filter_localization_node,
-        label_filter_node
+        label_filter_node,
+        freespace_node
     ])
