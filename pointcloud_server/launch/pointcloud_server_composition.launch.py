@@ -110,7 +110,7 @@ def generate_launch_description():
     )
 
     # 4) Freespace detection node (enabled if param freespace_detection == "true")
-    freespace_node = ComposableNode(
+    freespace_node_localization = ComposableNode(
         package='pointcloud_server',
         plugin='freespace_detection::FreespaceDetectionNode',
         name='freespace_detection',
@@ -120,7 +120,29 @@ def generate_launch_description():
             ('~/input', 'global_pointcloud_server/label_new_points_input'),
         ],
         condition=IfCondition(
-            PythonExpression(["'", LaunchConfiguration('freespace_detection'), "' == 'true'"])
+            PythonExpression([
+                "'", LaunchConfiguration('freespace_detection'),
+                "' == 'true' and '", LaunchConfiguration('mode'),
+                "' == 'localization'"
+            ])
+        )
+    )
+
+    freespace_node_mapping = ComposableNode(
+        package='pointcloud_server',
+        plugin='freespace_detection::FreespaceDetectionNode',
+        name='freespace_detection',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('~/input', 'global_pointcloud_server/add'),
+        ],
+        condition=IfCondition(
+            PythonExpression([
+                "'", LaunchConfiguration('freespace_detection'),
+                "' == 'true' and '", LaunchConfiguration('mode'),
+                "' == 'mapping'"
+            ])
         )
     )
 
@@ -139,7 +161,7 @@ def generate_launch_description():
             local_server_node,
             lidar_filter_localization_node,
             label_filter_node,
-            freespace_node
+            freespace_node_localization
         ],
         parameters=[LaunchConfiguration('params_file')],
         condition=IfCondition(
@@ -157,7 +179,7 @@ def generate_launch_description():
         composable_node_descriptions=[
             global_server_node,
             lidar_filter_mapping_node,
-            freespace_node
+            freespace_node_mapping
         ],
         parameters=[LaunchConfiguration('params_file')],
         condition=IfCondition(

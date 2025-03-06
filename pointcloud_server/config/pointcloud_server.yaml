@@ -5,7 +5,7 @@ global_pointcloud_server:
     GridSize: 50
     VoxelResolution: 10.0
     LeafSize: 0.1
-    MinFramesPerVoxel: 0
+    MinProbabilityPerVoxel: 0.0
     DecayingThreshold: -1.0
     PublishFrequency: 0.2
     # Sampling mode:
@@ -13,6 +13,7 @@ global_pointcloud_server:
     Sampling: 2
     ExpandOption: true
     RollOption: true
+    ProbabilityToIntensity: false
 
 local_pointcloud_server:
   ros__parameters:
@@ -21,7 +22,7 @@ local_pointcloud_server:
     GridSize: 10
     VoxelResolution: 1.0
     LeafSize: 0.05
-    MinFramesPerVoxel: 0
+    MinProbabilityPerVoxel: 0.0
     DecayingThreshold: 5.0
     PublishFrequency: 1.0
     # Sampling mode:
@@ -29,6 +30,7 @@ local_pointcloud_server:
     Sampling: 2
     ExpandOption: true
     RollOption: true
+    ProbabilityToIntensity: false
 
 /lidar_filter:
   ros__parameters:

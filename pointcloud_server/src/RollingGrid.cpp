@@ -69,7 +69,7 @@ void RollingGrid::SetGridSize(int size)
 
   // Clear current voxel grid and fill it back with points so that they now lie
   // in the right voxel
-  PointCloud::Ptr prevMap = this->Get();
+  PointCloud::Ptr prevMap = this->Get(this->MinProbabilityPerVoxel);
   this->Clear();
   if (!prevMap->empty())
     this->Add(prevMap);
@@ -90,7 +90,7 @@ void RollingGrid::SetVoxelResolution(double resolution)
   this->VoxelGridPosition = (this->VoxelGridPosition / this->VoxelWidth).floor() * this->VoxelWidth;
 
   // Move points so that they now lie in the right voxel
-  PointCloud::Ptr prevMap = this->Get();
+  PointCloud::Ptr prevMap = this->Get(this->MinProbabilityPerVoxel);
   this->Clear();
   if (!prevMap->empty())
     this->Add(prevMap);
@@ -114,7 +114,7 @@ void RollingGrid::SetLeafSize(double ls)
 //==============================================================================
 
 //------------------------------------------------------------------------------
-RollingGrid::PointCloud::Ptr RollingGrid::Get(bool clean) const
+RollingGrid::PointCloud::Ptr RollingGrid::Get(double p, bool probability_to_intensity) const
 {
   // Merge all points into a single pointcloud
   PointCloud::Ptr pc(new PointCloud);
@@ -127,13 +127,18 @@ RollingGrid::PointCloud::Ptr RollingGrid::Get(bool clean) const
     {
       // If all points can be used or if the point
       // does not lie in a moving object, extract it.
-      if (!clean || kvIn.second.count > this->MinFramesPerVoxel)
-        pc->push_back(kvIn.second.point);
+      if (this->GetP(kvIn.second) >= p)
+      {
+        LidarSlam::LidarPoint pt = kvIn.second.point; // Copy the point
+        if (probability_to_intensity)
+          pt.intensity = this->GetP(kvIn.second);
+        pc->push_back(pt);
+      }
     }
   }
-
   return pc;
 }
+
 
 //------------------------------------------------------------------------------
 void RollingGrid::Roll(const Eigen::Array3f& minPoint, const Eigen::Array3f& maxPoint)
@@ -199,7 +204,7 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool roll)
   Eigen::Array3f voxelGridOrigin = this->VoxelGridPosition - int(this->GridSize / 2) * this->VoxelWidth;
 
   // Boolean grid to check if a voxel has already been reached by another
-  // added point to decide whether to update the count attribute or not
+  // added point to decide whether to update the count_static attribute or not
   std::unordered_map<int, std::unordered_map<int, bool>> seen;
   // Voxels' states info (for CENTROID sampling mode) :
   // mean point of current added points in each voxel
@@ -293,8 +298,8 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool roll)
             // Shortcut to voxel of added keypoints cloud
             Voxel& vMean = meanPts[idxOut][idxIn];
             // Compute mean point of current added points in the voxel
-            vMean.point.getVector3fMap() = (vMean.point.getVector3fMap() * vMean.count + point.getVector3fMap()) / (vMean.count + 1);
-            ++vMean.count;
+            vMean.point.getVector3fMap() = (vMean.point.getVector3fMap() * vMean.static_count + point.getVector3fMap()) / (vMean.static_count + 1);
+            ++vMean.static_count;
 
             // Notify that the voxel point has been updated
             updated = true;
@@ -316,7 +321,7 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool roll)
             // Get voxel using its coordinates
             auto& voxel = this->Voxels[idxOut][idxIn];
             // Update the voxel point computing the centroid of all mean points laying in it
-            voxel.point.getVector3fMap() = (voxel.point.getVector3fMap() * voxel.count + vIn.second.point.getVector3fMap()) / (voxel.count + 1);
+            voxel.point.getVector3fMap() = (voxel.point.getVector3fMap() * voxel.static_count + vIn.second.point.getVector3fMap()) / (voxel.static_count + 1);
             voxel.point.label = 0; //Label is currently not supported for centroid mode
           }
         }
@@ -328,7 +333,7 @@ void RollingGrid::Add(const PointCloud::Ptr& pointcloud, bool roll)
 
       if (!seen.count(idxOut) || !seen[idxOut].count(idxIn))
       {
-        ++voxel.count;
+        ++voxel.static_count;
         seen[idxOut][idxIn] = true;
       }
     }
@@ -401,6 +406,9 @@ void RollingGrid::LabelNewPoints(PointCloud::Ptr& pointcloud, bool expand) const
 //------------------------------------------------------------------------------
 void RollingGrid::ClearPoints(double currentTime, bool clearOldPoints)
 {
+  if (clearOldPoints && !this->IsTimeThreshold())
+    return;
+
   // Loop on the outer voxels (rolling vg)
   auto itVoxelsOut = this->Voxels.begin();
   while(itVoxelsOut != this->Voxels.end())
@@ -458,8 +466,8 @@ void RollingGrid::Erase(int outVoxIdx, std::function<bool(const Point&)> heurist
   {
     // Shortcut to voxel
     Voxel& voxel = itVoxelsIn->second;
-    // If voxel is removable and in sphere, remove it
-    if (!(voxel.point.label>0) && heuristic(itVoxelsIn->second.point))
+    // If heuristic is true, remove it
+    if (heuristic(itVoxelsIn->second.point))
     {
       itVoxelsIn = this->Voxels[outVoxIdx].erase(itVoxelsIn);
       --this->NbPoints;
@@ -473,7 +481,7 @@ void RollingGrid::Erase(int outVoxIdx, std::function<bool(const Point&)> heurist
 void RollingGrid::BuildSubMap()
 {
   // Get all points from all voxels
-  this->SubMap = this->Get();
+  this->SubMap = this->Get(this->MinProbabilityPerVoxel);
 }
 
 //------------------------------------------------------------------------------
@@ -492,7 +500,7 @@ void RollingGrid::BuildSubMap(const Eigen::Array3f& minPoint, const Eigen::Array
   this->SubMap->reserve(this->NbPoints);
 
   // If we don't want to filter moving objects
-  if (minNbPoints < 0 || this->MinFramesPerVoxel <= 1)
+  if (minNbPoints < 0 || this->MinProbabilityPerVoxel == 0.0)
   {
     // Loop on the outer voxels
     // to extract all intersecting voxels
@@ -523,7 +531,7 @@ void RollingGrid::BuildSubMap(const Eigen::Array3f& minPoint, const Eigen::Array
        {
          // Check if enough points lie in the voxel
          // or if the points are known before adding it
-         if (kvIn.second.count >= this->MinFramesPerVoxel || kvIn.second.point.label > 0)
+         if (this->GetP(kvIn.second) >= this->MinProbabilityPerVoxel || kvIn.second.point.label > 0)
           this->SubMap->push_back(kvIn.second.point);
        }
      }
@@ -545,7 +553,7 @@ void RollingGrid::BuildSubMap(const Eigen::Array3f& minPoint, const Eigen::Array
          for (const auto& kvIn : kvOut.second)
          {
            // Invert constraint to add the other points
-           if (kvIn.second.count < this->MinFramesPerVoxel && kvIn.second.point.label < 1)
+           if (this->GetP(kvIn.second) < this->MinProbabilityPerVoxel && kvIn.second.point.label < 1)
               this->SubMap->push_back(kvIn.second.point);
          }
        }
@@ -617,7 +625,7 @@ void RollingGrid::BuildSubMap(const PointCloud& pc, int minNbPoints)
   }
 
   // If we don't want to filter moving objects
-  if (minNbPoints < 0 || this->MinFramesPerVoxel <= 1)
+  if (minNbPoints < 0 || this->MinProbabilityPerVoxel == 0.0)
   {
     // Add the selected voxels' points to the submap
     for (const auto& vxIdx : toAdd)
@@ -636,7 +644,7 @@ void RollingGrid::BuildSubMap(const PointCloud& pc, int minNbPoints)
       // Add inner voxels that have been seen enough
       for (const auto& kvIn : this->Voxels[vxIdx])
       {
-        if (kvIn.second.count > this->MinFramesPerVoxel ||
+        if (this->GetP(kvIn.second) >= this->MinProbabilityPerVoxel ||
             kvIn.second.point.label > 0)
           this->SubMap->push_back(kvIn.second.point);
       }
@@ -651,7 +659,7 @@ void RollingGrid::BuildSubMap(const PointCloud& pc, int minNbPoints)
         // Re-add missing inner voxels
         for (const auto& kvIn : this->Voxels[vxIdx])
         {
-          if (kvIn.second.count < this->MinFramesPerVoxel &&
+          if (this->GetP(kvIn.second) < this->MinProbabilityPerVoxel &&
               kvIn.second.point.label == 0)
             this->SubMap->push_back(kvIn.second.point);
         }

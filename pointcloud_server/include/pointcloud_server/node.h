@@ -45,7 +45,7 @@ private:
   double voxel_resolution_;
   double leaf_size_;
   unsigned int nb_points_;
-  unsigned int min_frames_per_voxel_;
+  unsigned int min_probability_per_voxel_;
   LidarSlam::SamplingMode sampling_;
   double decaying_threshold_;
   double publish_frequency_;
@@ -65,6 +65,7 @@ private:
   // Params for add / labelNewPoints via publisher/subscriber
   bool roll_option_;
   bool expand_option_;
+  bool probability_to_intensity_;
 
   // Service servers
   rclcpp::Service<pointcloud_server_interfaces::srv::Add>::SharedPtr add_service_;

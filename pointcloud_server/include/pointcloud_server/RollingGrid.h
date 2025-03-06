@@ -61,11 +61,12 @@ public:
   using KDTree = KDTreePCLAdaptor<Point>;
   // Voxel structure to store the remaining point
   // after downsampling and to count the number
-  // of updates that have been performed on the voxel
+  // static and dynamic oberservations
   struct Voxel
   {
     Point point;
-    unsigned int count = 0;
+    unsigned int static_count = 0;
+    unsigned int dynamic_count = 0;
   };
   using SamplingVG = std::unordered_map<int, Voxel>;
   using RollingVG  = std::unordered_map<int, SamplingVG>;
@@ -90,8 +91,8 @@ public:
   GetMacro(VoxelResolution, double)
   void SetLeafSize(double ls);
   GetMacro(LeafSize, double)
-  SetMacro(MinFramesPerVoxel, unsigned int)
-  GetMacro(MinFramesPerVoxel, unsigned int)
+  SetMacro(MinProbabilityPerVoxel, double)
+  GetMacro(MinProbabilityPerVoxel, double)
   SetMacro(Sampling, SamplingMode)
   GetMacro(Sampling, SamplingMode)
   SetMacro(DecayingThreshold, double)
@@ -102,8 +103,9 @@ public:
   //   Main rolling grid use
   //============================================================================
   //! Get all points in the grid
-  //! clean allows to remove the moving objects
-  PointCloud::Ptr Get(bool clean = false) const;
+  //! p allows to remove the moving objects (p = static / (static + dynamic))
+  //! probability_to_intensity allows to store the probability in the intensity field (for debugging)
+  PointCloud::Ptr Get(double p = 0.0, bool probability_to_intensity = false) const;
   //! Label unkown points (0) in a pointcloud with respect to the current map.
   //! The sampling mode is to take the first point
   void LabelNewPoints(PointCloud::Ptr& pointcloud, bool expand = false) const;
@@ -118,7 +120,7 @@ public:
   //============================================================================
   //   Sub map use
   //============================================================================
-  //! Extract the submaps rejecting moving object using the MinFramesPerVoxel criterion
+  //! Extract the submaps rejecting moving object using the MinProbabilityPerVoxel criterion
   //! Build the submap using all the points
   void BuildSubMap();
   //! Extract the submap as the map points laying in the bounding box formed by minPoint and maxPoint.
@@ -192,7 +194,7 @@ private:
   PointCloud::Ptr SubMap;
   //! Minimum number of points in a voxel
   //! to extract it in a submap
-  unsigned int MinFramesPerVoxel = 0;
+  double MinProbabilityPerVoxel = 0.0;
   //! The grid is filtered to contain at most one point per inner voxel
   //! This mode parameter allows to choose how to select the remaining point
   //! It can be : taking the first/last acquired point, taking the max intensity point,
@@ -206,5 +208,9 @@ private:
   int To1d(const Eigen::Array3i& voxelId3d, int gridSize) const;
   //! Conversion from 1D flattened voxel index to 3D index
   Eigen::Array3i To3d(int voxelId1d, int gridSize) const;
+
+  //! Get the probability of a voxel to be static
+  double GetP(const Voxel &v) const {return static_cast<double>(v.static_count) / (v.static_count + v.dynamic_count); }
+
 };
 } // end of LidarSlam namespace

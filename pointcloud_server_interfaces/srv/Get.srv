@@ -1,7 +1,9 @@
 # Get all points in the grid
-# clean allows to remove the moving objects
+# p allows to remove the moving objects (p = static / (static + dynamic))
+# probability_to_intensity allows to store the probability in the intensity field (for debugging)
 
-bool clean
+float32 p
+bool probability_to_intensity
 ---
 sensor_msgs/PointCloud2 cloud
 bool success

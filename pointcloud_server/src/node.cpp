@@ -27,7 +27,7 @@ PointcloudServerNode::PointcloudServerNode(const rclcpp::NodeOptions & options)
   rolling_grid_->SetGridSize(grid_size_);
   rolling_grid_->SetVoxelResolution(voxel_resolution_);
   rolling_grid_->SetLeafSize(leaf_size_);
-  rolling_grid_->SetMinFramesPerVoxel(min_frames_per_voxel_);
+  rolling_grid_->SetMinProbabilityPerVoxel(min_probability_per_voxel_);
   rolling_grid_->SetDecayingThreshold(decaying_threshold_);
   rolling_grid_->SetSampling(sampling_);
 
@@ -127,25 +127,27 @@ void PointcloudServerNode::loadParameters()
   this->declare_parameter<int>("GridSize", 50);
   this->declare_parameter<double>("VoxelResolution", 10.0);
   this->declare_parameter<double>("LeafSize", 0.2);
-  this->declare_parameter<int>("MinFramesPerVoxel", 0);
+  this->declare_parameter<double>("MinProbabilityPerVoxel", 0.0);
   this->declare_parameter<double>("DecayingThreshold", -1.0);
   this->declare_parameter<double>("PublishFrequency", 1.0);
   // Sampling mode as an integer: 0-FIRST, 1-LAST, 2-MAX_INTENSITY, 3-CENTER_POINT, 4-CENTROID
   this->declare_parameter<int>("Sampling", 2);
   this->declare_parameter<bool>("ExpandOption", true);
   this->declare_parameter<bool>("RollOption", true);
+  this->declare_parameter<bool>("ProbabilityToIntensity", false); //override intensity with probability
 
   map_path_ = this->get_parameter("map_path").as_string();
   frame_id_ = this->get_parameter("frame_id").as_string();
   grid_size_ = this->get_parameter("GridSize").as_int();
   voxel_resolution_ = this->get_parameter("VoxelResolution").as_double();
   leaf_size_ = this->get_parameter("LeafSize").as_double();
-  min_frames_per_voxel_ = this->get_parameter("MinFramesPerVoxel").as_int();
+  min_probability_per_voxel_ = this->get_parameter("MinProbabilityPerVoxel").as_double();
   decaying_threshold_ = this->get_parameter("DecayingThreshold").as_double();
   publish_frequency_ = this->get_parameter("PublishFrequency").as_double();
   int sampling_int = this->get_parameter("Sampling").as_int();
   expand_option_ = this->get_parameter("ExpandOption").as_bool();
   roll_option_ = this->get_parameter("RollOption").as_bool();
+  probability_to_intensity_ = this->get_parameter("ProbabilityToIntensity").as_bool();
 
   switch(sampling_int)
   {
@@ -173,7 +175,7 @@ void PointcloudServerNode::publishTimerCallback()
   // Publish the full map if there is at least one subscriber
   if(map_publisher_->get_subscription_count() > 0)
   {
-    auto pcl_map = rolling_grid_->Get();
+    auto pcl_map = rolling_grid_->Get(min_probability_per_voxel_, probability_to_intensity_);
     sensor_msgs::msg::PointCloud2 msg;
     pcl::toROSMsg(*pcl_map, msg);
     msg.header.stamp = this->now();
@@ -204,7 +206,7 @@ void PointcloudServerNode::addCallbackPubSub(const sensor_msgs::msg::PointCloud2
     rolling_grid_->Add(cloud_ptr, roll_option_);
 
     // Clear old points
-    double currentTime = msg->header.stamp.sec + (msg->header.stamp.nanosec * 1e-9);
+    double currentTime = this->now().seconds();
     rolling_grid_->ClearPoints(currentTime);
 
   } catch (const std::exception &e) {
@@ -408,7 +410,7 @@ void PointcloudServerNode::getCallback(
 {
   RCLCPP_INFO(this->get_logger(), "Received Get service call");
   try {
-    auto pcl_map = rolling_grid_->Get(request->clean);
+    auto pcl_map = rolling_grid_->Get(request->p, request->probability_to_intensity);
     pcl::toROSMsg(*pcl_map, response->cloud);
     response->success = true;
     response->message = "";
@@ -581,7 +583,7 @@ void PointcloudServerNode::saveCallback(
   RCLCPP_INFO(this->get_logger(), "Received Save service call");
   try {
     // Get the full map
-    auto pcl_map = rolling_grid_->Get();
+    auto pcl_map = rolling_grid_->Get(min_probability_per_voxel_);
 
     // If the request path is empty, use the member variable map_path_.
     // If map_path_ is also empty, throw an error.
