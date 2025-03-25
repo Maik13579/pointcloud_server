@@ -41,6 +41,7 @@ private:
   // Parameters
   std::string map_path_;
   std::string frame_id_;
+  bool only_services_;
   int grid_size_;
   double voxel_resolution_;
   double leaf_size_;

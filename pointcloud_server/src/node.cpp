@@ -36,33 +36,36 @@ PointcloudServerNode::PointcloudServerNode(const rclcpp::NodeOptions & options)
   submap_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/submap", 10);
 
   // Create timer for periodic publishing based on publish_frequency_
-  publish_timer_ = this->create_wall_timer(
+  if (publish_frequency_ > 0.0){
+    publish_timer_ = this->create_wall_timer(
     std::chrono::milliseconds(static_cast<int>(1000.0 / publish_frequency_)),
-    std::bind(&PointcloudServerNode::publishTimerCallback, this)
-  );
+    std::bind(&PointcloudServerNode::publishTimerCallback, this));
+  }
 
-  // Create publisher and subscriber for add / labelNewPoints
-  add_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/add", 10,
-    std::bind(&PointcloudServerNode::addCallbackPubSub, this, std::placeholders::_1)
-  );
+  if (!only_services_){
+    // Create publisher and subscriber for add / labelNewPoints
+    add_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "~/add", 10,
+      std::bind(&PointcloudServerNode::addCallbackPubSub, this, std::placeholders::_1)
+    );
 
-  label_new_points_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/label_new_points_input", 10,
-    std::bind(&PointcloudServerNode::labelNewPointsCallbackPubSub, this, std::placeholders::_1)
-  );
-  label_new_point_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/label_new_points_output", 10);
+    label_new_points_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "~/label_new_points_input", 10,
+      std::bind(&PointcloudServerNode::labelNewPointsCallbackPubSub, this, std::placeholders::_1)
+    );
+    label_new_point_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/label_new_points_output", 10);
 
-  freespace_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/freespace", 10,
-    std::bind(&PointcloudServerNode::freespaceCallback, this, std::placeholders::_1)
-  );
+    freespace_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "~/freespace", 10,
+      std::bind(&PointcloudServerNode::freespaceCallback, this, std::placeholders::_1)
+    );
 
-  freespace_label_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/freespace_label_input", 10,
-    std::bind(&PointcloudServerNode::freespaceLabelCallback, this, std::placeholders::_1)
-  );
-  freespace_label_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/freespace_label_output", 10);
+    freespace_label_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "~/freespace_label_input", 10,
+      std::bind(&PointcloudServerNode::freespaceLabelCallback, this, std::placeholders::_1)
+    );
+    freespace_label_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/freespace_label_output", 10);
+  }
 
 
   // Create service servers with stub callbacks
@@ -134,6 +137,7 @@ void PointcloudServerNode::loadParameters()
   // Declare and get parameters with default values
   this->declare_parameter<std::string>("map_path", "");
   this->declare_parameter<std::string>("frame_id", "map");
+  this->declare_parameter<bool>("only_services", false); //only start services
   this->declare_parameter<int>("GridSize", 50);
   this->declare_parameter<double>("VoxelResolution", 10.0);
   this->declare_parameter<double>("LeafSize", 0.2);
@@ -148,6 +152,7 @@ void PointcloudServerNode::loadParameters()
 
   map_path_ = this->get_parameter("map_path").as_string();
   frame_id_ = this->get_parameter("frame_id").as_string();
+  only_services_ = this->get_parameter("only_services").as_bool();
   grid_size_ = this->get_parameter("GridSize").as_int();
   voxel_resolution_ = this->get_parameter("VoxelResolution").as_double();
   leaf_size_ = this->get_parameter("LeafSize").as_double();
