@@ -120,8 +120,7 @@ PointcloudServerNode::PointcloudServerNode(const rclcpp::NodeOptions & options)
     pcl::PointCloud<LidarSlam::LidarPoint>::Ptr map_cloud(new pcl::PointCloud<LidarSlam::LidarPoint>);
     if (pcl::io::loadPCDFile(map_path_, *map_cloud) == 0) {
       RCLCPP_INFO(this->get_logger(), "Loaded map from %s", map_path_.c_str());
-      // Add the loaded cloud to the grid. Set roll=false since the cloud is already aligned.
-      rolling_grid_->Add(map_cloud, false);
+      rolling_grid_->Add(map_cloud, true);
     } else {
       RCLCPP_ERROR(this->get_logger(), "Failed to load map from %s", map_path_.c_str());
     }
