@@ -15,6 +15,7 @@
 #include "pointcloud_server_interfaces/srv/get_sub_map.hpp"
 #include "pointcloud_server_interfaces/srv/knn_search.hpp"
 #include "pointcloud_server_interfaces/srv/label_new_points.hpp"
+#include "pointcloud_server_interfaces/srv/registration.hpp"
 #include "pointcloud_server_interfaces/srv/reset.hpp"
 #include "pointcloud_server_interfaces/srv/save.hpp"
 #include "pointcloud_server_interfaces/srv/roll.hpp"
@@ -84,6 +85,7 @@ private:
   rclcpp::Service<pointcloud_server_interfaces::srv::GetSubMap>::SharedPtr get_submap_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::KnnSearch>::SharedPtr knn_search_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::LabelNewPoints>::SharedPtr label_new_points_service_;
+  rclcpp::Service<pointcloud_server_interfaces::srv::Registration>::SharedPtr registration_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::Reset>::SharedPtr reset_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::Roll>::SharedPtr roll_service_;
   rclcpp::Service<pointcloud_server_interfaces::srv::Save>::SharedPtr save_service_;
@@ -118,6 +120,8 @@ private:
                          std::shared_ptr<pointcloud_server_interfaces::srv::KnnSearch::Response> response);
   void labelNewPointsCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::LabelNewPoints::Request> request,
                               std::shared_ptr<pointcloud_server_interfaces::srv::LabelNewPoints::Response> response);
+  void registrationCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::Registration::Request> request,
+                            std::shared_ptr<pointcloud_server_interfaces::srv::Registration::Response> response);
   void resetCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::Reset::Request> request,
                      std::shared_ptr<pointcloud_server_interfaces::srv::Reset::Response> response);
   void rollCallback(const std::shared_ptr<pointcloud_server_interfaces::srv::Roll::Request> request,

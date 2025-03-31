@@ -1,11 +1,19 @@
 #include "pointcloud_server/node.h"
+#include "pointcloud_server/LidarPoint.h"
+
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include "pcl_conversions/pcl_conversions.h"
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include "pointcloud_server/LidarPoint.h"
+#include "pcl/common/common.h"
+#include <pcl/registration/icp.h>
+
 #include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <tf2_eigen/tf2_eigen.hpp> 
+#include <cmath>
+#include <exception>
 
 #include <rclcpp_components/register_node_macro.hpp>
 
@@ -98,6 +106,9 @@ PointcloudServerNode::PointcloudServerNode(const rclcpp::NodeOptions & options)
   );
   label_new_points_service_ = this->create_service<pointcloud_server_interfaces::srv::LabelNewPoints>(
     "~/label_new_points", std::bind(&PointcloudServerNode::labelNewPointsCallback, this, std::placeholders::_1, std::placeholders::_2)
+  );
+  registration_service_ = this->create_service<pointcloud_server_interfaces::srv::Registration>(
+    "~/registration", std::bind(&PointcloudServerNode::registrationCallback, this, std::placeholders::_1, std::placeholders::_2)
   );
   reset_service_ = this->create_service<pointcloud_server_interfaces::srv::Reset>(
     "~/reset", std::bind(&PointcloudServerNode::resetCallback, this, std::placeholders::_1, std::placeholders::_2)
@@ -607,6 +618,118 @@ void PointcloudServerNode::resetCallback(
   }
 }
 
+
+void PointcloudServerNode::registrationCallback(
+  const std::shared_ptr<pointcloud_server_interfaces::srv::Registration::Request> request,
+  std::shared_ptr<pointcloud_server_interfaces::srv::Registration::Response> response)
+{
+  RCLCPP_INFO(this->get_logger(), "Received Registration service call");
+  try {
+    // Convert input ROS PointCloud2 to a PCL cloud.
+    pcl::PointCloud<LidarSlam::LidarPoint> source_cloud;
+    pcl::fromROSMsg(request->source_cloud, source_cloud);
+    if (source_cloud.empty()) {
+      throw std::runtime_error("Input source cloud is empty.");
+    }
+    auto source_cloud_ptr = std::make_shared<pcl::PointCloud<LidarSlam::LidarPoint>>(source_cloud);
+
+    // Compute the bounding box of the source cloud.
+    LidarSlam::LidarPoint min_pt, max_pt;
+    pcl::getMinMax3D(*source_cloud_ptr, min_pt, max_pt);
+    Eigen::Array3f minPoint(min_pt.x, min_pt.y, min_pt.z);
+    Eigen::Array3f maxPoint(max_pt.x, max_pt.y, max_pt.z);
+
+    // Expand bounding box using the first max_correspondence_distance (for submap extraction).
+    float expand_bb = request->max_correspondence_distances[0];
+    minPoint -= Eigen::Array3f(expand_bb, expand_bb, expand_bb);
+    maxPoint += Eigen::Array3f(expand_bb, expand_bb, expand_bb);
+
+    // Build submap from the current grid based on the expanded bounding box.
+    rolling_grid_->BuildSubMap(minPoint, maxPoint, 50);
+    auto submap = rolling_grid_->GetSubMap();
+    if (!submap || submap->empty()) {
+      throw std::runtime_error("Submap is empty.");
+    }
+    // Use the submap as the target cloud.
+    pcl::PointCloud<LidarSlam::LidarPoint>::Ptr target_cloud(new pcl::PointCloud<LidarSlam::LidarPoint>);
+    *target_cloud = *submap;
+
+    // Multi-scale ICP registration.
+    Eigen::Matrix4f cumulativeTransform = Eigen::Matrix4f::Identity();
+    pcl::IterativeClosestPoint<LidarSlam::LidarPoint, LidarSlam::LidarPoint> icp;
+    // Set target once for ICP.
+    icp.setInputTarget(target_cloud);
+    pcl::PointCloud<LidarSlam::LidarPoint>::Ptr current_source(new pcl::PointCloud<LidarSlam::LidarPoint>);
+    *current_source = *source_cloud_ptr;
+
+    for (size_t scale = 0; scale < request->max_correspondence_distances.size(); ++scale) {
+      icp.setInputSource(current_source);
+      icp.setMaximumIterations(request->max_iterations);
+      icp.setTransformationEpsilon(request->transform_epsilon);
+      icp.setMaxCorrespondenceDistance(request->max_correspondence_distances[scale]);
+
+      pcl::PointCloud<LidarSlam::LidarPoint> icp_result;
+      icp.align(icp_result);
+      if (!icp.hasConverged()) {
+        throw std::runtime_error("ICP did not converge at scale " + std::to_string(scale));
+      }
+      cumulativeTransform = icp.getFinalTransformation() * cumulativeTransform;
+      pcl::transformPointCloud(*source_cloud_ptr, *current_source, cumulativeTransform);
+    }
+
+    // Get the fitness score (MSE) from ICP.
+    float mse = static_cast<float>(icp.getFitnessScore());
+
+    // Build the KD-tree on the submap to compute the overlap ratio.
+    rolling_grid_->BuildKdTree();
+    int counter = 0;
+    int total_points = current_source->size();
+    float threshold_overlap = request->max_correspondence_distances.back();
+    for (const auto &pt : *current_source) {
+      double query[3] = { static_cast<double>(pt.x),
+                          static_cast<double>(pt.y),
+                          static_cast<double>(pt.z) };
+      std::vector<int> indices;
+      std::vector<float> distances;
+      int found = rolling_grid_->KnnSearch(query, 1, indices, distances);
+      if (found > 0 && distances[0] <= threshold_overlap)
+        counter++;
+    }
+    float overlap = (total_points > 0) ? static_cast<float>(counter) / static_cast<float>(total_points) : 0.0f;
+
+    // Convert the final transformed cloud to a ROS PointCloud2 message.
+    sensor_msgs::msg::PointCloud2 output_msg;
+    pcl::toROSMsg(*current_source, output_msg);
+    output_msg.header.frame_id = frame_id_;
+    output_msg.header.stamp = this->now();
+    response->transformed_cloud = output_msg;
+
+    // Convert cumulative transformation to a ROS Transform.
+    Eigen::Matrix4d mat = cumulativeTransform.cast<double>();
+    Eigen::Affine3d affine(mat);
+    geometry_msgs::msg::Pose pose = tf2::toMsg(affine);
+    geometry_msgs::msg::Transform final_tf;
+    final_tf.translation.x = pose.position.x;
+    final_tf.translation.y = pose.position.y;
+    final_tf.translation.z = pose.position.z;
+    final_tf.rotation = pose.orientation;
+    response->final_transform = final_tf;
+
+    response->fitness_score = mse;
+    response->overlap = overlap;
+    response->success = true;
+    response->message = "";
+
+    // Optionally add the transformed cloud to the map.
+    if (request->add_cloud) {
+      rolling_grid_->Add(current_source, true);
+    }
+  } catch (const std::exception &e) {
+    response->success = false;
+    response->message = e.what();
+    RCLCPP_ERROR(this->get_logger(), "Error in Registration: %s", e.what());
+  }
+}
 
 void PointcloudServerNode::rollCallback(
   const std::shared_ptr<pointcloud_server_interfaces::srv::Roll::Request> request,

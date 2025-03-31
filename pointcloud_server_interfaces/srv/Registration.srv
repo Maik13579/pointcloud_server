@@ -1,0 +1,25 @@
+# Register a pointcloud into the current map using Multi-Scale Iterative Closest Point (MSICP)
+sensor_msgs/PointCloud2 source_cloud       # Input cloud
+float32[] max_correspondence_distances     # Maximum distance between corresponding points for MSICP
+
+int32 max_iterations                       # Maximum number of iterations, Default: 50
+float32 transform_epsilon                  # Specifies the minimum change in the transformation matrix between iterations
+                                           # if the change is below this value, the algorithm converges.
+                                           # Default: 1e-8
+
+bool add_cloud                             # If true, the cloud will be added to the map
+
+---
+
+bool success
+string message
+sensor_msgs/PointCloud2 transformed_cloud  # Transformed cloud
+geometry_msgs/Transform final_transform    # Final transformation
+float32 fitness_score                      # The fitness score represents the mean squared error (MSE) of the alignment computed by ICP.
+                                           # In other words, it is the average squared distance between each point in the transformed 
+                                           # (aligned) source cloud and its corresponding nearest neighbor in the target (map) cloud.
+                                           # Lower fitness scores indicate a better alignment.
+
+float32 overlap                            # Ratio of source points that have a corresponding point in the map
+                                           # 0.23 would mean that 23% of the points in the input cloud have a corresponding point 
+                                           #in the map within the max_correspondence_distances[-1]

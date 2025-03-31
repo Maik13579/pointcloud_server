@@ -6,6 +6,8 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
 endif()
 
+add_definitions(-DTF2_EIGEN_STATIC_LIBRARY)
+
 find_package(ament_cmake REQUIRED)
 find_package(pointcloud_server_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -31,6 +33,7 @@ include_directories(
   ${EIGEN3_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${NANOFLLAN_INCLUDE_DIR}
+  ${tf2_eigen_INCLUDE_DIRS}
 )
 
 # -------------------------------------------------------------------
@@ -48,9 +51,11 @@ ament_target_dependencies(pointcloud_server_component
   Eigen3
   pcl_conversions
   pcl_ros
+  tf2_eigen
 )
 target_link_libraries(pointcloud_server_component
   ${PCL_LIBRARIES}
+  tf2_eigen::tf2_eigen
 )
 if(OpenMP_CXX_FOUND)
   target_link_libraries(pointcloud_server_component OpenMP::OpenMP_CXX)

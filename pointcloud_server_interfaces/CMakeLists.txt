@@ -29,6 +29,7 @@ set(srv_files
   "srv/GetSubMap.srv"
   "srv/KnnSearch.srv"
   "srv/LabelNewPoints.srv"
+  "srv/Registration.srv"
   "srv/Reset.srv"
   "srv/Roll.srv"
   "srv/Save.srv"
